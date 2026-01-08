@@ -6,26 +6,44 @@
 // Charger la configuration de la base de données
 require_once __DIR__ . '/db_config.php';
 
-// Connexion à la base de données
-try {
-    if (!empty($db_name)) {
-        $link = mysqli_connect($db_host, $db_user, $db_password, $db_name);
-    } else {
-        // Se connecter sans spécifier de base de données
-        $link = mysqli_connect($db_host, $db_user, $db_password);
+// Connexion à la base de données avec timeout court pour éviter les attentes longues
+// Ne pas utiliser die() pour permettre aux pages de s'afficher même si la DB n'est pas accessible
+$link = null;
+
+// Vérifier si on doit vraiment se connecter (éviter les connexions inutiles)
+if (isset($db_host) && isset($db_user) && isset($db_password)) {
+    try {
+        // Définir un timeout court pour éviter les attentes longues
+        ini_set('default_socket_timeout', 3); // 3 secondes max
+        
+        if (!empty($db_name)) {
+            $link = @mysqli_connect($db_host, $db_user, $db_password, $db_name);
+        } else {
+            // Se connecter sans spécifier de base de données
+            $link = @mysqli_connect($db_host, $db_user, $db_password);
+        }
+        
+        if ($link) {
+            // Définir un timeout pour les requêtes
+            mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, 3);
+            mysqli_options($link, MYSQLI_OPT_READ_TIMEOUT, 3);
+        } else {
+            $error_msg = mysqli_connect_error();
+            error_log("Erreur de connexion à la base de données: " . $error_msg);
+            // Ne pas utiliser die() - laisser $link = null pour que les pages puissent s'afficher
+            $link = null;
+        }
+    } catch (Exception $e) {
+        error_log("Exception lors de la connexion à la base de données: " . $e->getMessage());
+        // Ne pas utiliser die() - laisser $link = null
+        $link = null;
     }
-    
-    if (!$link) {
-        error_log("Erreur de connexion à la base de données: " . mysqli_connect_error());
-        die("Erreur de connexion : " . mysqli_connect_error());
-    }
-} catch (Exception $e) {
-    error_log("Exception lors de la connexion à la base de données: " . $e->getMessage());
-    die("Erreur de connexion à la base de données. Vérifiez que le serveur MySQL est en cours d'exécution.");
 }
 
-// Définir le jeu de caractères
-mysqli_set_charset($link, "utf8");
+// Définir le jeu de caractères (seulement si la connexion est établie)
+if ($link) {
+    mysqli_set_charset($link, "utf8");
+}
 
 /**
  * Exécute une requête SQL de manière sécurisée

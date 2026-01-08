@@ -1,8 +1,34 @@
 <?php
 // Utiliser __DIR__ pour des chemins absolus plus fiables
-require_once __DIR__ . '/../../service/paydunya_service.php';
-require_once __DIR__ . '/../../service/paydunya_env.php';
-require_once __DIR__ . '/../../service/db_utils.php';
+// Chargement optimisé : ne charger la DB que si nécessaire (lazy loading)
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+
+// Charger les fichiers PayDunya (légers, pas de connexion DB)
+try {
+    require_once __DIR__ . '/../../service/paydunya_service.php';
+} catch (Exception $e) {
+    error_log("Erreur lors du chargement de paydunya_service.php: " . $e->getMessage());
+}
+
+try {
+    require_once __DIR__ . '/../../service/paydunya_env.php';
+} catch (Exception $e) {
+    error_log("Erreur lors du chargement de paydunya_env.php: " . $e->getMessage());
+}
+
+// Ne charger db_utils.php QUE si on a besoin de la DB (lors d'un POST)
+// Cela évite les timeouts de connexion au chargement initial de la page
+$link = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        require_once __DIR__ . '/../../service/db_utils.php';
+        global $link;
+    } catch (Exception $e) {
+        error_log("Erreur lors du chargement de db_utils.php: " . $e->getMessage());
+    }
+}
 
 $error_message = '';
 $success_message = '';

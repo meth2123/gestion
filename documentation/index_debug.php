@@ -1,13 +1,42 @@
 <?php
-// Page de documentation - ne nécessite pas de connexion à la base de données
-// Charger db_utils.php seulement si nécessaire (lazy loading)
-// Cela évite les timeouts de connexion qui ralentissent l'affichage
+// Version de debug avec gestion d'erreurs améliorée
 error_reporting(E_ALL);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
-// Ne pas charger db_utils.php ici car la documentation n'en a pas besoin
-// Cela évite les attentes de connexion à la base de données
+echo "<!-- Début du chargement -->\n";
+
+try {
+    echo "<!-- Tentative de chargement de db_utils.php -->\n";
+    $db_utils_path = __DIR__ . '/../service/db_utils.php';
+    
+    if (!file_exists($db_utils_path)) {
+        throw new Exception("Fichier db_utils.php non trouvé: $db_utils_path");
+    }
+    
+    require_once $db_utils_path;
+    echo "<!-- db_utils.php chargé avec succès -->\n";
+    
+    // Vérifier la connexion à la base de données
+    global $link;
+    if (!$link) {
+        throw new Exception("Connexion à la base de données échouée");
+    }
+    
+    echo "<!-- Connexion à la base de données OK -->\n";
+    
+} catch (Exception $e) {
+    echo "<!DOCTYPE html><html><head><title>Erreur</title></head><body>";
+    echo "<h1>Erreur lors du chargement</h1>";
+    echo "<p><strong>Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>Fichier:</strong> " . htmlspecialchars($e->getFile()) . "</p>";
+    echo "<p><strong>Ligne:</strong> " . $e->getLine() . "</p>";
+    echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    echo "</body></html>";
+    exit;
+}
+
+// Si on arrive ici, tout est OK, charger le reste
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -115,55 +144,6 @@ ini_set('log_errors', 1);
             </div>
         </div>
 
-        <!-- Fonctionnalités principales -->
-        <div class="feature-section mt-5">
-            <h2 class="text-center mb-4">Fonctionnalités principales</h2>
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-calendar-check text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Gestion des emplois du temps</h3>
-                    </div>
-                    <p>Planification et suivi des cours, gestion des salles et des ressources.</p>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-journal-text text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Suivi des notes</h3>
-                    </div>
-                    <p>Gestion des évaluations, bulletins et suivi de la progression.</p>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-cash-coin text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Gestion des paiements</h3>
-                    </div>
-                    <p>Suivi des frais de scolarité, paiements en ligne et facturation.</p>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-chat-dots text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Communication</h3>
-                    </div>
-                    <p>Messagerie interne, annonces et notifications en temps réel.</p>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-file-earmark-text text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Documents</h3>
-                    </div>
-                    <p>Gestion des documents administratifs et ressources pédagogiques.</p>
-                </div>
-                <div class="col-md-4">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-graph-up text-primary me-3" style="font-size: 1.5rem;"></i>
-                        <h3 class="h5 mb-0">Rapports et statistiques</h3>
-                    </div>
-                    <p>Tableaux de bord et analyses pour le suivi des performances.</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Support -->
         <div class="feature-section mt-5">
             <h2 class="text-center mb-4">Besoin d'aide ?</h2>
@@ -189,3 +169,4 @@ ini_set('log_errors', 1);
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
