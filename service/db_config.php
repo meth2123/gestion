@@ -4,12 +4,15 @@
  */
 
 // Fonction helper pour obtenir les variables d'environnement (compatible avec getenv et $_ENV)
-function getEnvVar($key, $default = null) {
-    $value = getenv($key);
-    if ($value === false && isset($_ENV[$key])) {
-        $value = $_ENV[$key];
+// Vérifier si la fonction existe déjà pour éviter les conflits
+if (!function_exists('getEnvVar')) {
+    function getEnvVar($key, $default = null) {
+        $value = getenv($key);
+        if ($value === false && isset($_ENV[$key])) {
+            $value = $_ENV[$key];
+        }
+        return $value !== false ? $value : $default;
     }
-    return $value !== false ? $value : $default;
 }
 
 // Détection spécifique de Render.com (PRIORITAIRE - vérifier en premier)

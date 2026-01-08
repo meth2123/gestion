@@ -15,6 +15,10 @@ ini_set('log_errors', 1);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentation SchoolManager</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/jpeg" href="../source/logo.jpg">
+    <link rel="shortcut icon" type="image/jpeg" href="../source/logo.jpg">
+    <link rel="apple-touch-icon" href="../source/logo.jpg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .guide-card {

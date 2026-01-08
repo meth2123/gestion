@@ -2,13 +2,15 @@
 // Database configuration
 // Utiliser la même logique que service/db_config.php pour la compatibilité
 
-// Fonction helper pour obtenir les variables d'environnement
-function getEnvVar($key, $default = null) {
-    $value = getenv($key);
-    if ($value === false && isset($_ENV[$key])) {
-        $value = $_ENV[$key];
+// Fonction helper pour obtenir les variables d'environnement (seulement si pas déjà définie)
+if (!function_exists('getEnvVar')) {
+    function getEnvVar($key, $default = null) {
+        $value = getenv($key);
+        if ($value === false && isset($_ENV[$key])) {
+            $value = $_ENV[$key];
+        }
+        return $value !== false ? $value : $default;
     }
-    return $value !== false ? $value : $default;
 }
 
 // Détecter l'environnement (Render, Railway, Docker, local)
