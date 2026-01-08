@@ -1,0 +1,88 @@
+═══════════════════════════════════════════════════════════════
+    GUIDE RAPIDE - IMPORTATION DE PARENTS DEPUIS EXCEL
+═══════════════════════════════════════════════════════════════
+
+📋 ÉTAPES RAPIDES :
+
+1. Accéder à la page d'importation
+   ─────────────────────────────────────────
+   URL : http://localhost:8080/gestion/module/admin/importParents.php
+
+2. Télécharger le modèle Excel
+   ─────────────────────────────────────────
+   Cliquer sur "Télécharger le modèle Excel"
+
+3. Remplir le fichier Excel
+   ─────────────────────────────────────────
+   Colonnes requises (l'ID est généré automatiquement) :
+   • Mot de passe      : password123 (min 6 caractères)
+   • Nom du père       : Mamadou Diop (obligatoire)
+   • Nom de la mère    : Fatou Sall (obligatoire)
+   • Téléphone père    : 771234567 (obligatoire)
+   • Téléphone mère    : 772345678 (optionnel)
+   • Adresse           : 123 Rue de Dakar, Sénégal
+
+4. Importer le fichier
+   ─────────────────────────────────────────
+   • Sélectionner le fichier Excel
+   • Cocher "Ignorer les lignes avec erreurs" (recommandé)
+   • Cliquer sur "Importer les parents"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  POINTS IMPORTANTS :
+
+✓ L'ID parent est généré automatiquement basé sur le nom de la mère
+✓ Format de l'ID : XXX-PA001 (ex: SAL-PA001 pour Sall)
+✓ Le nom de la mère est OBLIGATOIRE pour générer l'ID
+✓ Mot de passe, nom du père et téléphone du père sont obligatoires
+✓ Le téléphone de la mère est optionnel
+
+═══════════════════════════════════════════════════════════════
+
+📊 EXEMPLE DE DONNÉES :
+
+Mot de passe | Nom du père    | Nom de la mère | Tél père  | Tél mère  | Adresse
+-------------|----------------|----------------|-----------|-----------|---------------------------
+password123  | Mamadou Diop   | Fatou Sall     | 771234567 | 772345678 | 123 Rue de Dakar, Sénégal
+password456  | Abdou Ndiaye   | Aissatou Kane  | 773456789 | 774567890 | 456 Avenue Bourguiba
+password789  | Ousmane Diouf  | Mariama Sy     | 775678901 | 776789012 | 789 Boulevard République
+
+═══════════════════════════════════════════════════════════════
+
+🆔 GÉNÉRATION DE L'ID :
+
+Si la mère s'appelle :
+• "Fatou Sall"     → ID sera : SAL-PA001, SAL-PA002, etc.
+• "Aissatou Kane"  → ID sera : KAN-PA001, KAN-PA002, etc.
+• "Mariama Sy"     → ID sera : SY-PA001, SY-PA002, etc.
+
+Les 3 premières lettres du nom de la mère sont utilisées
+
+═══════════════════════════════════════════════════════════════
+
+🔧 EN CAS DE PROBLÈME :
+
+1. Erreur "Nom de la mère obligatoire"
+   → Assurez-vous que la colonne "Nom de la mère" est remplie
+
+2. Erreur "Mot de passe obligatoire"
+   → Remplissez la colonne "Mot de passe" (min 6 caractères)
+
+3. Erreur "Téléphone du père obligatoire"
+   → Remplissez la colonne "Téléphone du père"
+
+4. ID parent déjà existant
+   → Le système génère automatiquement un nouvel ID unique
+
+═══════════════════════════════════════════════════════════════
+
+✨ AVANTAGES :
+
+⚡ Importez des dizaines de parents en quelques secondes
+🔒 Validation automatique des données
+🆔 Génération automatique des ID basée sur le nom de la mère
+📊 Rapport détaillé des importations
+🔄 Option pour ignorer les erreurs et continuer
+
+═══════════════════════════════════════════════════════════════

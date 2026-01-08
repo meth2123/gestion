@@ -1,0 +1,89 @@
+═══════════════════════════════════════════════════════════════
+    GUIDE RAPIDE - IMPORTATION DE CLASSES DEPUIS EXCEL
+═══════════════════════════════════════════════════════════════
+
+📋 ÉTAPES RAPIDES :
+
+1. Accéder à la page d'importation
+   ─────────────────────────────────────────
+   URL : http://localhost:8080/gestion/module/admin/importClasses.php
+
+2. Télécharger le modèle Excel
+   ─────────────────────────────────────────
+   Cliquer sur "Télécharger le modèle Excel"
+
+3. Remplir le fichier Excel
+   ─────────────────────────────────────────
+   Colonnes requises (l'ID est généré automatiquement) :
+   • Nom de la classe : Classe de CI, Maternelle, CE1
+   • Section          : A, B, 1, 2
+   • Salle            : Salle 101, Salle 201
+
+4. Importer le fichier
+   ─────────────────────────────────────────
+   • Sélectionner le fichier Excel
+   • Cocher "Ignorer les lignes avec erreurs" (recommandé)
+   • Cliquer sur "Importer les classes"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  POINTS IMPORTANTS :
+
+✓ L'ID de classe est généré automatiquement
+✓ Format de l'ID : CLS-XXX-SECTION-999
+✓ Tous les champs sont obligatoires
+✓ Le système vérifie les doublons
+
+═══════════════════════════════════════════════════════════════
+
+📊 EXEMPLE DE DONNÉES :
+
+Nom de la classe | Section | Salle
+-----------------|---------|----------
+Classe de CI     | A       | Salle 101
+Classe de CP     | B       | Salle 102
+Maternelle       | 1       | Salle 201
+CE1              | A       | Salle 301
+CE2              | B       | Salle 302
+
+═══════════════════════════════════════════════════════════════
+
+🆔 GÉNÉRATION DE L'ID :
+
+Si vous créez :
+• "Classe de CI" + Section "A" → ID sera : CLS-CLA-A-456
+• "Maternelle" + Section "1"   → ID sera : CLS-MAT-1-789
+• "CE1" + Section "A"          → ID sera : CLS-CE1-A-123
+
+Les 3 premières lettres du nom + section + nombre aléatoire
+
+═══════════════════════════════════════════════════════════════
+
+🔧 EN CAS DE PROBLÈME :
+
+1. Erreur "Champs obligatoires manquants"
+   → Assurez-vous que toutes les colonnes sont remplies
+
+2. Erreur "Classe déjà existante"
+   → Une classe avec le même nom, section et salle existe déjà
+   → Modifiez au moins un des trois champs
+
+3. Colonnes vides
+   → Vérifiez que chaque ligne a les 3 colonnes remplies
+
+4. Format incorrect
+   → Utilisez le modèle Excel fourni
+   → Ne modifiez pas les en-têtes
+
+═══════════════════════════════════════════════════════════════
+
+✨ AVANTAGES :
+
+⚡ Importez des dizaines de classes en quelques secondes
+🔒 Validation automatique des données
+🆔 Génération automatique des ID uniques
+📊 Rapport détaillé des importations
+🔄 Option pour ignorer les erreurs et continuer
+✅ Vérification automatique des doublons
+
+═══════════════════════════════════════════════════════════════

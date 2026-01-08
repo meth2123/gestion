@@ -1,0 +1,7 @@
+# Configuration minimale pour la sécurité
+
+# Empêcher l'accès direct aux répertoires
+# Options -Indexes
+
+# Rediriger toutes les erreurs 404 vers la page personnalisée
+ErrorDocument 404 /gestion/404.php

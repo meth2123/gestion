@@ -1,0 +1,104 @@
+═══════════════════════════════════════════════════════════════
+    GUIDE RAPIDE - IMPORTATION DE COURS DEPUIS EXCEL
+═══════════════════════════════════════════════════════════════
+
+📋 ÉTAPES RAPIDES :
+
+1. Accéder à la page d'importation
+   ─────────────────────────────────────────
+   URL : http://localhost:8080/gestion/module/admin/importCourses.php
+
+2. Télécharger le modèle Excel
+   ─────────────────────────────────────────
+   Cliquer sur "Télécharger le modèle Excel"
+
+3. Consulter les listes de référence
+   ─────────────────────────────────────────
+   Sur la page d'importation, vous trouverez :
+   • Liste des Classes Disponibles (avec leurs ID)
+   • Liste des Enseignants Disponibles (avec leurs ID)
+
+4. Remplir le fichier Excel
+   ─────────────────────────────────────────
+   Colonnes requises :
+   • Nom du cours    : Mathématiques, Français, Sciences
+   • ID Classe       : CLS-001, CLS-002 (voir liste)
+   • ID Enseignant   : TE-AMA-1234 (voir liste)
+
+5. Importer le fichier
+   ─────────────────────────────────────────
+   • Sélectionner le fichier Excel
+   • Cocher "Ignorer les lignes avec erreurs" (recommandé)
+   • Cliquer sur "Importer les cours"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  POINTS IMPORTANTS :
+
+✓ Les ID Classe doivent exister dans le système
+✓ Les ID Enseignant doivent exister dans le système
+✓ Consultez les listes sur la page d'importation
+✓ Copiez les ID exactement comme affichés
+
+═══════════════════════════════════════════════════════════════
+
+📊 EXEMPLE DE DONNÉES :
+
+Nom du cours    | ID Classe  | ID Enseignant
+----------------|------------|---------------
+Mathématiques   | CLS-001    | TE-AMA-1234
+Français        | CLS-001    | TE-FAT-5678
+Sciences        | CLS-002    | TE-MOU-9012
+Histoire        | CLS-002    | TE-AMA-1234
+Géographie      | CLS-003    | TE-FAT-5678
+
+═══════════════════════════════════════════════════════════════
+
+🔍 COMMENT TROUVER LES ID :
+
+1. Classes Disponibles
+   ─────────────────────────────────────────
+   Sur la page d'importation, tableau de gauche :
+   ID Classe    | Nom
+   CLS-001      | Classe de CI
+   CLS-002      | Classe de CP
+   CLS-CI-A-473 | maternell - 1
+
+2. Enseignants Disponibles
+   ─────────────────────────────────────────
+   Sur la page d'importation, tableau de droite :
+   ID Enseignant | Nom
+   TE-AMA-1234   | Amadou Diop
+   TE-FAT-5678   | Fatou Sall
+   TE-MOU-9012   | Moussa Kane
+
+═══════════════════════════════════════════════════════════════
+
+🔧 EN CAS DE PROBLÈME :
+
+1. Erreur "Classe inexistante (ID: XXX)"
+   → Vérifiez l'ID de classe dans le tableau "Classes Disponibles"
+   → Copiez l'ID exact depuis la liste
+
+2. Erreur "Enseignant inexistant (ID: XXX)"
+   → Vérifiez l'ID enseignant dans le tableau "Enseignants Disponibles"
+   → Copiez l'ID exact depuis la liste
+
+3. Erreur "Champs obligatoires manquants"
+   → Assurez-vous que toutes les colonnes sont remplies
+
+4. ID non reconnu
+   → Les ID sont sensibles à la casse
+   → Copiez-collez les ID depuis les listes affichées
+
+═══════════════════════════════════════════════════════════════
+
+✨ AVANTAGES :
+
+⚡ Importez des dizaines de cours en quelques secondes
+🔒 Validation automatique des clés étrangères
+📊 Listes de référence affichées directement
+🔄 Option pour ignorer les erreurs et continuer
+✅ Vérification automatique de l'existence des classes et enseignants
+
+═══════════════════════════════════════════════════════════════

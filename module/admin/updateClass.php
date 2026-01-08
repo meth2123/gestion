@@ -1,0 +1,198 @@
+<?php
+include_once('main.php');
+include_once('includes/admin_actions.php');
+include_once('includes/admin_utils.php');
+
+// Activer l'affichage des erreurs
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+$check = $_SESSION['login_id'];
+// Initialiser la variable admin_name pour éviter l'avertissement
+$admin_name = $_SESSION['name'] ?? 'Admin';
+$class_id = $_GET['id'] ?? '';
+
+// Message de statut
+$status_message = '';
+$class_data = null;
+
+// Récupérer les données de la classe
+if ($class_id) {
+    $sql = "SELECT * FROM class WHERE id = ?";
+    $stmt = $link->prepare($sql);
+    $stmt->bind_param("s", $class_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $class_data = $result->fetch_assoc();
+
+    if (!$class_data) {
+        header("Location: manageClass.php?error=" . urlencode("Classe non trouvée"));
+        exit;
+    }
+}
+
+// Traitement du formulaire
+if(isset($_POST['submit'])){
+    try {
+        // Récupération et validation des données
+        $className = trim($_POST['className']);
+        $section = trim($_POST['section']);
+        $room = trim($_POST['room']);
+
+        // Validation des données
+        if(empty($className)) throw new Exception("Le nom de la classe est requis");
+        if(empty($section)) throw new Exception("La section est requise");
+        if(empty($room)) throw new Exception("La salle est requise");
+
+        // Vérifier si la classe existe déjà (sauf elle-même)
+        $check_sql = "SELECT id FROM class WHERE id != ? AND name = ? AND section = ? AND room = ?";
+        $check_stmt = $link->prepare($check_sql);
+        $check_stmt->bind_param("ssss", $class_id, $className, $section, $room);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+
+        if($check_result->num_rows > 0) {
+            throw new Exception("Une autre classe avec ces informations existe déjà");
+        }
+
+        // Mise à jour de la classe
+        $sql = "UPDATE class SET name = ?, section = ?, room = ? WHERE id = ?";
+        $stmt = $link->prepare($sql);
+        if (!$stmt) {
+            throw new Exception("Erreur de préparation de la requête : " . $link->error);
+        }
+
+        $stmt->bind_param("ssss", $className, $section, $room, $class_id);
+
+        if (!$stmt->execute()) {
+            throw new Exception("Erreur lors de la mise à jour : " . $stmt->error);
+        }
+
+        // Redirection avec message de succès
+        header("Location: manageClass.php?success=" . urlencode("Classe modifiée avec succès"));
+        exit;
+
+    } catch (Exception $e) {
+        $status_message = '<div class="alert alert-danger mb-4">' . htmlspecialchars($e->getMessage()) . '</div>';
+    }
+}
+
+$content = '
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            ' . $status_message . '
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h2 class="h5 mb-0">Modification d\'une Classe</h2>
+                    <span class="badge bg-primary">ID: ' . htmlspecialchars($class_id) . '</span>
+                </div>
+                
+                <div class="card-body">
+                    <form action="updateClass.php?id=' . htmlspecialchars($class_id) . '" method="post" onsubmit="return validateClassForm();">
+                        <!-- Nom et Section -->
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3 mb-md-0">
+                                <label for="className" class="form-label">Nom de la Classe*</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-chalkboard"></i></span>
+                                    <input id="className" type="text" name="className" placeholder="Ex: 6ème" required
+                                           value="' . htmlspecialchars($class_data['name'] ?? '') . '"
+                                           class="form-control">
+                                </div>
+                                <div id="classNameError" class="invalid-feedback d-none"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="section" class="form-label">Section*</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                    <input id="section" type="text" name="section" placeholder="Ex: A" required
+                                           value="' . htmlspecialchars($class_data['section'] ?? '') . '"
+                                           class="form-control">
+                                </div>
+                                <div id="sectionError" class="invalid-feedback d-none"></div>
+                            </div>
+                        </div>
+
+                        <!-- Salle -->
+                        <div class="mb-4">
+                            <label for="room" class="form-label">Salle*</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-door-open"></i></span>
+                                <input id="room" type="text" name="room" placeholder="Ex: 101" required
+                                       value="' . htmlspecialchars($class_data['room'] ?? '') . '"
+                                       class="form-control">
+                            </div>
+                            <div id="roomError" class="invalid-feedback d-none"></div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-flex justify-content-between border-top pt-3">
+                            <a href="manageClass.php" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Retour
+                            </a>
+                            <button type="submit" name="submit" value="1" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Modifier la classe
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function validateClassForm() {
+    let isValid = true;
+    
+    // Réinitialiser tous les messages d\'erreur
+    document.querySelectorAll(".invalid-feedback").forEach(function(el) {
+        el.classList.add("d-none");
+        el.textContent = "";
+    });
+    
+    document.querySelectorAll(".form-control").forEach(el => {
+        el.classList.remove("is-invalid");
+    });
+
+    // Validate Class Name
+    const className = document.getElementById("className").value.trim();
+    if (!className || className.length < 2) {
+        showError("className", "Le nom de la classe doit contenir au moins 2 caractères");
+        isValid = false;
+    }
+
+    // Validate Section
+    const section = document.getElementById("section").value.trim();
+    if (!section) {
+        showError("section", "La section est requise");
+        isValid = false;
+    }
+
+    // Validate Room
+    const room = document.getElementById("room").value.trim();
+    if (!room) {
+        showError("room", "La salle est requise");
+        isValid = false;
+    }
+
+    return isValid;
+}
+
+// Fonction pour afficher les erreurs
+function showError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    const errorElement = document.getElementById(fieldId + "Error");
+    
+    if (field && errorElement) {
+        field.classList.add("is-invalid");
+        errorElement.textContent = message;
+        errorElement.classList.remove("d-none");
+    }
+}
+</script>';
+
+include('templates/layout.php');
+?>

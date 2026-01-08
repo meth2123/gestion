@@ -1,0 +1,83 @@
+═══════════════════════════════════════════════════════════════
+    GUIDE RAPIDE - IMPORTATION D'ENSEIGNANTS DEPUIS EXCEL
+═══════════════════════════════════════════════════════════════
+
+📋 ÉTAPES RAPIDES :
+
+1. Accéder à la page d'importation
+   ─────────────────────────────────────────
+   URL : http://localhost:8080/gestion/module/admin/importTeachers.php
+
+2. Télécharger le modèle Excel
+   ─────────────────────────────────────────
+   Cliquer sur "Télécharger le modèle Excel"
+
+3. Remplir le fichier Excel
+   ─────────────────────────────────────────
+   Colonnes requises (l'ID est généré automatiquement) :
+   • Nom              : Amadou Diop
+   • Email            : amadou.diop@school.com (unique)
+   • Téléphone        : 771234567
+   • Genre            : male ou female (en minuscules)
+   • Date naissance   : 1985-05-15 (format AAAA-MM-JJ)
+   • Mot de passe     : password123 (min 6 caractères)
+   • Date d'embauche  : 2023-09-01 (format AAAA-MM-JJ)
+   • Salaire          : 350000 (nombre en FCFA)
+   • Adresse          : 123 Rue de Dakar
+
+4. Importer le fichier
+   ─────────────────────────────────────────
+   • Sélectionner le fichier Excel
+   • Cocher "Ignorer les lignes avec erreurs" (recommandé)
+   • Cliquer sur "Importer les enseignants"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  POINTS IMPORTANTS :
+
+✓ L'ID enseignant est généré automatiquement (format: TE-XXX-9999)
+✓ Les emails doivent être UNIQUES
+✓ Genre : male ou female (en minuscules)
+✓ Format de date strict : AAAA-MM-JJ (ex: 1985-05-15)
+✓ Salaire : nombre sans espaces ni symboles (ex: 350000)
+
+═══════════════════════════════════════════════════════════════
+
+📊 EXEMPLE DE DONNÉES :
+
+Nom           | Email                    | Téléphone | Genre  | Date naissance | Mot de passe | Date embauche | Salaire | Adresse
+--------------|--------------------------|-----------|--------|----------------|--------------|---------------|---------|------------------
+Amadou Diop   | amadou.diop@school.com   | 771234567 | male   | 1985-05-15     | pass123      | 2023-09-01    | 350000  | 123 Rue Dakar
+Fatou Sall    | fatou.sall@school.com    | 772345678 | female | 1990-08-20     | pass456      | 2023-09-01    | 320000  | 456 Ave Bourguiba
+Moussa Kane   | moussa.kane@school.com   | 773456789 | male   | 1988-12-10     | pass789      | 2024-01-15    | 380000  | 789 Blvd Rep
+
+═══════════════════════════════════════════════════════════════
+
+🔧 EN CAS DE PROBLÈME :
+
+1. Erreur "Email déjà existant"
+   → Utiliser un email unique différent
+
+2. Erreur "Format d'email invalide"
+   → Vérifier le format : nom@domaine.com
+
+3. Erreur "Le salaire doit être un nombre"
+   → Utiliser uniquement des chiffres (ex: 350000, pas 350 000)
+
+4. Erreur "Format de date invalide"
+   → Utiliser le format AAAA-MM-JJ (ex: 1985-05-15)
+
+5. Erreur de genre
+   → Utiliser exactement "male" ou "female" (en minuscules)
+
+═══════════════════════════════════════════════════════════════
+
+✨ AVANTAGES :
+
+⚡ Importez des dizaines d'enseignants en quelques secondes
+🔒 Validation automatique des données
+📊 Rapport détaillé des importations
+🔄 Option pour ignorer les erreurs et continuer
+🆔 Génération automatique des ID enseignants
+
+═══════════════════════════════════════════════════════════════

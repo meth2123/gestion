@@ -1,0 +1,76 @@
+═══════════════════════════════════════════════════════════════
+    GUIDE RAPIDE - IMPORTATION D'ÉTUDIANTS DEPUIS EXCEL
+═══════════════════════════════════════════════════════════════
+
+📋 ÉTAPES RAPIDES :
+
+1. Installer PhpSpreadsheet (une seule fois)
+   ─────────────────────────────────────────
+   Ouvrir un terminal dans : c:\wamp64\www\gestion
+   Exécuter : composer update phpoffice/phpspreadsheet
+
+2. Accéder à la page d'importation
+   ─────────────────────────────────────────
+   URL : http://localhost:8080/gestion/module/admin/importStudents.php
+
+3. Télécharger le modèle Excel
+   ─────────────────────────────────────────
+   Cliquer sur "Télécharger le modèle Excel"
+
+4. Remplir le fichier Excel
+   ─────────────────────────────────────────
+   Colonnes requises :
+   • ID Étudiant     : STU001, STU002, etc.
+   • Nom Complet     : Jean Dupont
+   • Mot de passe    : password123 (min 6 caractères)
+   • Téléphone       : 771234567
+   • Email           : jean@email.com
+   • Genre           : Male ou Female
+   • Date naissance  : 2010-05-15 (format AAAA-MM-JJ)
+   • Adresse         : 123 Rue de Dakar
+   • ID Parent       : Voir liste sur la page (ex: NDI-PA001)
+   • ID Classe       : Voir liste sur la page (ex: CLS-CI-A-473)
+
+5. Importer le fichier
+   ─────────────────────────────────────────
+   • Sélectionner le fichier Excel
+   • Cocher "Ignorer les lignes avec erreurs" (recommandé)
+   • Cliquer sur "Importer les étudiants"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  POINTS IMPORTANTS :
+
+✓ Les ID étudiants doivent être UNIQUES
+✓ Les ID Parent doivent EXISTER dans le système
+✓ Les ID Classe doivent EXISTER dans le système
+✓ Format de date strict : AAAA-MM-JJ (ex: 2010-05-15)
+✓ Genre : Male ou Female (respecter la casse)
+
+═══════════════════════════════════════════════════════════════
+
+📊 EXEMPLE DE DONNÉES :
+
+ID Étudiant | Nom Complet    | Mot de passe | Téléphone | Email              | Genre  | Date naissance | Adresse           | ID Parent   | ID Classe
+------------|----------------|--------------|-----------|--------------------| -------|----------------|-------------------|-------------|-------------
+STU001      | Jean Dupont    | pass123      | 771234567 | jean@email.com     | Male   | 2010-05-15     | 123 Rue Dakar     | NDI-PA001   | CLS-CI-A-473
+STU002      | Marie Diallo   | pass456      | 772345678 | marie@email.com    | Female | 2011-08-20     | 456 Ave Bourguiba | NDI-PA002   | CLS-CI-A-473
+STU003      | Amadou Sow     | pass789      | 773456789 | amadou@email.com   | Male   | 2009-12-10     | 789 Blvd Rep      | NDI-PA003   | CLS-CI-B-474
+
+═══════════════════════════════════════════════════════════════
+
+🔧 EN CAS DE PROBLÈME :
+
+1. Erreur "Classe inexistante"
+   → Vérifier l'ID de classe dans la liste affichée sur la page
+
+2. Erreur "Parent inexistant"
+   → Vérifier l'ID parent dans la liste affichée sur la page
+
+3. Erreur "ID étudiant déjà existant"
+   → Utiliser un ID unique différent
+
+4. Erreur "Format de date invalide"
+   → Utiliser le format AAAA-MM-JJ (ex: 2010-05-15)
+
+═══════════════════════════════════════════════════════════════
