@@ -138,7 +138,8 @@ class SubscriptionDetector {
      */
     private function generateRenewalUrl($subscription) {
         $school_name = urlencode($subscription['school_name']);
-        return "/gestion/module/subscription/renew.php?school={$school_name}";
+        // Utiliser un chemin relatif au lieu de /gestion/
+        return "module/subscription/renew.php?school={$school_name}";
     }
     
     /**
@@ -226,7 +227,7 @@ class SubscriptionDetector {
             // Nouvel utilisateur - bouton d'inscription
             return [
                 'text' => 'S\'abonner',
-                'url' => '/gestion/module/subscription/register.php',
+                'url' => 'module/subscription/register.php',
                 'class' => 'btn-success',
                 'icon' => 'fas fa-crown',
                 'message' => 'Commencez votre abonnement'
@@ -249,7 +250,7 @@ class SubscriptionDetector {
             // Abonnement actif
             return [
                 'text' => 'Mon Abonnement',
-                'url' => '/gestion/module/subscription/dashboard.php',
+                'url' => 'module/subscription/dashboard.php',
                 'class' => 'btn-info',
                 'icon' => 'fas fa-user-check',
                 'message' => $detection['message']

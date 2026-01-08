@@ -19,8 +19,23 @@ RUN apt-get update && apt-get install -y \
 # Installer les extensions PHP nécessaires
 RUN docker-php-ext-install pdo_mysql mysqli zip exif pcntl bcmath soap
 
-# Activer le module rewrite d'Apache
-RUN a2enmod rewrite
+# Activer les modules Apache nécessaires
+RUN a2enmod rewrite headers
+
+# Configurer Apache pour permettre .htaccess et l'accès aux fichiers PHP
+RUN echo "<Directory /var/www/html>" > /etc/apache2/conf-available/php-app.conf \
+    && echo "    Options -Indexes +FollowSymLinks" >> /etc/apache2/conf-available/php-app.conf \
+    && echo "    AllowOverride All" >> /etc/apache2/conf-available/php-app.conf \
+    && echo "    Require all granted" >> /etc/apache2/conf-available/php-app.conf \
+    && echo "    DirectoryIndex index.php index.html" >> /etc/apache2/conf-available/php-app.conf \
+    && echo "</Directory>" >> /etc/apache2/conf-available/php-app.conf \
+    && a2enconf php-app
+
+# Configurer le virtual host par défaut pour pointer vers /var/www/html
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html|g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's|<Directory /var/www/>|<Directory /var/www/html>|g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's|Options Indexes FollowSymLinks|Options -Indexes +FollowSymLinks|g' /etc/apache2/sites-available/000-default.conf \
+    && sed -i 's|AllowOverride None|AllowOverride All|g' /etc/apache2/sites-available/000-default.conf
 
 # Configurer PHP pour la production
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \

@@ -1,7 +1,42 @@
-# Configuration minimale pour la sécurité
+# Configuration Apache pour l'application
+
+# Définir le fichier index par défaut
+DirectoryIndex index.php index.html
+
+# Activer le moteur de réécriture
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Autoriser l'accès direct aux fichiers existants
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+    
+    # Si on accède à un répertoire, essayer d'ajouter index.php
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.php -f
+    RewriteRule ^(.*)$ $1/index.php [L]
+</IfModule>
 
 # Empêcher l'accès direct aux répertoires
-# Options -Indexes
+Options -Indexes
 
-# Rediriger toutes les erreurs 404 vers la page personnalisée
-ErrorDocument 404 /gestion/404.php
+# Protéger les fichiers sensibles
+<FilesMatch "^(\.htaccess|\.env|composer\.(json|lock)|package\.json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Rediriger les erreurs 404 vers la page personnalisée (si elle existe)
+<IfModule mod_rewrite.c>
+    # Vérifier si 404.php existe avant de rediriger
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/404\.php$
+    RewriteCond %{DOCUMENT_ROOT}/404.php -f
+    RewriteRule ^.*$ /404.php [L]
+</IfModule>
+
+# Configuration par défaut pour les erreurs
+ErrorDocument 404 "Page non trouvée"

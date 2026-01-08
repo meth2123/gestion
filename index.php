@@ -4,7 +4,8 @@ require_once __DIR__ . '/service/mysqlcon.php';
 require_once __DIR__ . '/components/SmartSubscriptionButton.php';
 require_once __DIR__ . '/components/SecureSubscriptionChecker.php';
 
-$base_url = 'http://localhost:8080';
+// Utiliser APP_URL depuis les variables d'environnement ou une valeur par défaut
+$base_url = getenv('APP_URL') ?: 'https://gestion-rlhq.onrender.com';
 
 $login_code = isset($_REQUEST['login']) ? $_REQUEST['login'] : '1';
 $reset_success = isset($_REQUEST['reset']) ? $_REQUEST['reset'] : '';
@@ -109,10 +110,10 @@ if(isset($_GET['error'])) {
                         <a class="nav-link" href="#pricing">Tarifs</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/gestion/documentation/index.php?">Documentation</a>
+                        <a class="nav-link" href="documentation/index.php">Documentation</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-primary" href="/gestion/login.php?">Se connecter</a>
+                        <a class="nav-link text-primary" href="login.php">Se connecter</a>
                     </li>
                     <li class="nav-item ms-lg-2">
                         <?php 
@@ -137,7 +138,7 @@ if(isset($_GET['error'])) {
                     <h1 class="display-4 fw-bold mb-4">Gérez votre établissement scolaire en toute simplicité</h1>
                     <p class="lead mb-5">SchoolManager est une solution complète pour la gestion administrative et pédagogique de votre établissement scolaire.</p>
                     <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
-                        <a href="/gestion/login.php?" class="btn btn-primary btn-lg">
+                        <a href="login.php" class="btn btn-primary btn-lg">
                             <i class="fas fa-sign-in-alt me-2"></i>Se connecter
                         </a>
                         <?php echo $smartButton->render(null, null, 'large'); ?>
@@ -274,13 +275,13 @@ if(isset($_GET['error'])) {
                 <div class="col-md-4 mb-4 mb-md-0">
                     <h5 class="mb-3">Liens rapides</h5>
                     <ul class="list-unstyled small">
-                        <li class="mb-2"><a href="/gestion/login.php?" class="text-white text-decoration-none">Se connecter</a></li>
+                        <li class="mb-2"><a href="login.php" class="text-white text-decoration-none">Se connecter</a></li>
                         <li class="mb-2">
                             <?php 
                             $button = $smartButton->render();
                             // Extraire juste le lien du bouton pour le footer
                             preg_match('/href="([^"]+)"/', $button, $matches);
-                            $url = $matches[1] ?? '/gestion/module/subscription/register.php';
+                            $url = $matches[1] ?? 'module/subscription/register.php';
                             preg_match('/<i class="([^"]+)"/', $button, $iconMatches);
                             $icon = $iconMatches[1] ?? 'fas fa-crown';
                             preg_match('/>([^<]+)<\/i>([^<]+)</', $button, $textMatches);
@@ -290,7 +291,7 @@ if(isset($_GET['error'])) {
                                 <i class="<?php echo $icon; ?> me-1"></i><?php echo $text; ?>
                             </a>
                         </li>
-                        <li class="mb-2"><a href="/gestion/documentation/index.php?" class="text-white text-decoration-none">Documentation</a></li>
+                        <li class="mb-2"><a href="documentation/index.php" class="text-white text-decoration-none">Documentation</a></li>
                     </ul>
                 </div>
                 <div class="col-md-4">
