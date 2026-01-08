@@ -8,6 +8,10 @@ services:
     dockerfilePath: Dockerfile
     dockerContext: ./
     envVars:
+      - key: RENDER
+        value: "true"
+      - key: IS_RENDER
+        value: "true"
       - key: APP_URL
         value: https://schoolmanager.sn
       - key: APP_ENV
@@ -55,7 +59,7 @@ services:
       - key: MYSQL_ROOT_PASSWORD
         generateValue: true
       - key: MYSQL_DATABASE
-        value: schoolmanager
+        value: gestion
       - key: MYSQL_USER
         generateValue: true
       - key: MYSQL_PASSWORD

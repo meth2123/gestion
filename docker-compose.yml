@@ -10,13 +10,16 @@ services:
     volumes:
       - ./:/var/www/html
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - DB_HOST=db
       - DB_USER=root
       - DB_PASSWORD=root_password
       - DB_NAME=gestion
     restart: always
+    networks:
+      - gestion_network
 
   # Service MySQL
   db:
@@ -31,6 +34,18 @@ services:
       - MYSQL_ROOT_PASSWORD=root_password
       - MYSQL_DATABASE=gestion
     restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    networks:
+      - gestion_network
 
 volumes:
   mysql_data:
+
+networks:
+  gestion_network:
+    driver: bridge

@@ -34,13 +34,31 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Fonction pour vérifier si un hôte est résolvable
+function is_host_resolvable($host) {
+    // Vérifier si c'est localhost ou une adresse IP
+    if ($host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP)) {
+        return true;
+    }
+    
+    // Essayer de résoudre le nom d'hôte
+    $ip = gethostbyname($host);
+    return $ip !== $host; // Si l'IP est différente du nom, c'est résolu
+}
+
 // Fonction pour attendre que la base de données soit prête
-function wait_for_db($host, $username, $password, $db_name, $port = 3306, $socket = '', $max_attempts = 10) {
+function wait_for_db($host, $username, $password, $db_name, $port = 3306, $socket = '', $max_attempts = 15) {
     $attempts = 0;
     $connected = false;
     
+    // Vérifier d'abord si l'hôte est résolvable (sauf pour localhost)
+    if ($host !== 'localhost' && !is_host_resolvable($host)) {
+        error_log("ERREUR: Le nom d'hôte '$host' ne peut pas être résolu. Vérifiez que le service de base de données est démarré et accessible.");
+        return false;
+    }
+    
     while (!$connected && $attempts < $max_attempts) {
-        error_log("Tentative de connexion à la base de données ($host:$port) - tentative " . ($attempts + 1));
+        error_log("Tentative de connexion à la base de données ($host:$port) - tentative " . ($attempts + 1) . "/$max_attempts");
         try {
             // Utiliser le socket si spécifié, sinon utiliser le port
             if (!empty($socket)) {
@@ -51,19 +69,34 @@ function wait_for_db($host, $username, $password, $db_name, $port = 3306, $socke
                 $temp_link = @new mysqli($host, $username, $password, $db_name, $port);
             }
             
-            if (!$temp_link->connect_error) {
-                error_log("Connexion réussie à la base de données après $attempts tentatives");
+            if ($temp_link && !$temp_link->connect_error) {
+                error_log("Connexion réussie à la base de données après " . ($attempts + 1) . " tentative(s)");
                 $temp_link->close();
                 $connected = true;
             } else {
-                error_log("Échec de la connexion: " . $temp_link->connect_error);
+                $error_msg = $temp_link ? $temp_link->connect_error : 'Impossible de créer la connexion';
+                error_log("Échec de la connexion: " . $error_msg);
                 $attempts++;
-                sleep(3); // Attendre 3 secondes avant de réessayer
+                if ($attempts < $max_attempts) {
+                    sleep(2); // Attendre 2 secondes avant de réessayer
+                }
             }
         } catch (Exception $e) {
             error_log("Exception lors de la tentative de connexion: " . $e->getMessage());
             $attempts++;
-            sleep(3);
+            if ($attempts < $max_attempts) {
+                sleep(2);
+            }
+        }
+    }
+    
+    if (!$connected) {
+        error_log("ERREUR CRITIQUE: Impossible de se connecter à la base de données après $max_attempts tentatives");
+        if ($host === 'db') {
+            error_log("Le service 'db' n'est pas accessible. Vérifiez que:");
+            error_log("1. Le conteneur de base de données est démarré (docker-compose up -d db)");
+            error_log("2. Les conteneurs sont dans le même réseau Docker");
+            error_log("3. Le service s'appelle bien 'db' dans docker-compose.yml");
         }
     }
     
@@ -71,8 +104,26 @@ function wait_for_db($host, $username, $password, $db_name, $port = 3306, $socke
 }
 
 // Dans l'environnement de production, attendre que la base de données soit prête
-if (file_exists('/.dockerenv') || getenv('DB_HOST') || getenv('RENDER')) {
-    wait_for_db($host, $username, $password, $database_name, $db_port, $db_socket);
+$is_docker_env = file_exists('/.dockerenv') || getenv('DB_HOST') || getenv('RENDER');
+if ($is_docker_env) {
+    $db_ready = wait_for_db($host, $username, $password, $database_name, $db_port, $db_socket);
+    if (!$db_ready && $host === 'db') {
+        // Message d'erreur plus explicite pour Docker
+        $error_msg = "Impossible de se connecter au service de base de données 'db'.\n\n";
+        $error_msg .= "Vérifications à effectuer:\n";
+        $error_msg .= "1. Vérifiez que le conteneur de base de données est démarré: docker-compose ps\n";
+        $error_msg .= "2. Démarrez les services si nécessaire: docker-compose up -d\n";
+        $error_msg .= "3. Vérifiez les logs de la base de données: docker-compose logs db\n";
+        $error_msg .= "4. Vérifiez que les conteneurs sont dans le même réseau Docker\n\n";
+        $error_msg .= "Configuration actuelle:\n";
+        $error_msg .= "- Host: $host\n";
+        $error_msg .= "- Port: $db_port\n";
+        $error_msg .= "- Database: $database_name\n";
+        $error_msg .= "- User: $username\n";
+        
+        error_log($error_msg);
+        die("<h1>Erreur de connexion à la base de données</h1><pre>" . htmlspecialchars($error_msg) . "</pre>");
+    }
 }
 
 // Créer la connexion avec mysqli
@@ -96,8 +147,35 @@ if (!empty($database_name)) {
 
 // Vérifier la connexion
 if ($link->connect_error) {
-    error_log("Erreur de connexion à la base de données: " . $link->connect_error);
-    die("La connexion a échoué: " . $link->connect_error);
+    $error_msg = "Erreur de connexion à la base de données: " . $link->connect_error;
+    error_log($error_msg);
+    
+    // Message d'erreur plus détaillé pour Docker
+    if ($host === 'db' && strpos($link->connect_error, 'getaddrinfo') !== false) {
+        $detailed_error = "<h1>Erreur de connexion à la base de données</h1>\n";
+        $detailed_error .= "<p><strong>Le service de base de données 'db' n'est pas accessible.</strong></p>\n";
+        $detailed_error .= "<p>Erreur: " . htmlspecialchars($link->connect_error) . "</p>\n";
+        $detailed_error .= "<h2>Solutions possibles:</h2>\n";
+        $detailed_error .= "<ol>\n";
+        $detailed_error .= "<li>Vérifiez que le conteneur de base de données est démarré:<br>\n";
+        $detailed_error .= "<code>docker-compose ps</code></li>\n";
+        $detailed_error .= "<li>Démarrez les services si nécessaire:<br>\n";
+        $detailed_error .= "<code>docker-compose up -d</code></li>\n";
+        $detailed_error .= "<li>Vérifiez les logs de la base de données:<br>\n";
+        $detailed_error .= "<code>docker-compose logs db</code></li>\n";
+        $detailed_error .= "<li>Vérifiez que les conteneurs sont dans le même réseau Docker</li>\n";
+        $detailed_error .= "</ol>\n";
+        $detailed_error .= "<h3>Configuration actuelle:</h3>\n";
+        $detailed_error .= "<ul>\n";
+        $detailed_error .= "<li>Host: " . htmlspecialchars($host) . "</li>\n";
+        $detailed_error .= "<li>Port: " . htmlspecialchars($db_port) . "</li>\n";
+        $detailed_error .= "<li>Database: " . htmlspecialchars($database_name) . "</li>\n";
+        $detailed_error .= "<li>User: " . htmlspecialchars($username) . "</li>\n";
+        $detailed_error .= "</ul>\n";
+        die($detailed_error);
+    }
+    
+    die("La connexion a échoué: " . htmlspecialchars($link->connect_error));
 }
 
 // Définir le jeu de caractères
