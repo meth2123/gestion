@@ -38,6 +38,8 @@ error_log("MYSQL_USER env: " . getEnvVar('MYSQL_USER', 'non défini'));
 error_log("MYSQ_LUSER env: " . getEnvVar('MYSQ_LUSER', 'non défini') . " (vérification faute de frappe)");
 error_log("MYSQLDATABASE env: " . getEnvVar('MYSQLDATABASE', 'non défini'));
 error_log("MYSQL_DATABASE env: " . getEnvVar('MYSQL_DATABASE', 'non défini'));
+error_log("MYSQL_URL env: " . (getEnvVar('MYSQL_URL', 'non défini') ? substr(getEnvVar('MYSQL_URL', ''), 0, 50) . '...' : 'non défini'));
+error_log("MYSQL_PUBLIC_URL env: " . (getEnvVar('MYSQL_PUBLIC_URL', 'non défini') ? substr(getEnvVar('MYSQL_PUBLIC_URL', ''), 0, 50) . '...' : 'non défini'));
 error_log("EXTERNAL_DATABASE_HOST: " . (getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'non défini'));
 error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'));
 
@@ -52,26 +54,145 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
         // 3. DB_* (base Render générée automatiquement via render.yaml)
         
         // PRIORITÉ 1: Vérifier les variables MySQL standard (Render, Railway, etc.)
-        // Supporte plusieurs formats : MYSQLHOST, MYSQL_HOST, MYSQ_LUSER (faute de frappe courante)
-        $mysql_host = getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST');
-        $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER') ?: getEnvVar('MYSQ_LUSER'); // Gère aussi la faute de frappe MYSQ_LUSER
-        $mysql_password = getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD');
-        $mysql_database = getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE');
-        $mysql_port = getEnvVar('MYSQLPORT') ?: getEnvVar('MYSQL_PORT', '3306');
+        // Railway fournit MYSQL_URL qui contient l'URL complète de connexion (utilisable depuis l'extérieur)
+        // Vérifier d'abord MYSQL_URL (Railway fournit souvent cette variable avec l'hôte public)
+        $mysql_url = getEnvVar('MYSQL_URL') ?: getEnvVar('MYSQLURL');
+        $db_host = null;
+        $db_user = null;
+        $db_password = null;
+        $db_name = null;
+        $db_port = '3306';
         
-        if (!empty($mysql_host) && !empty($mysql_user) && !empty($mysql_database)) {
-            // Utiliser les variables MySQL standard de Render
-            $db_host = $mysql_host;
-            $db_user = $mysql_user;
-            $db_password = $mysql_password ?: getEnvVar('MYSQL_ROOT_PASSWORD', '');
-            $db_name = $mysql_database;
-            $db_port = $mysql_port;
-            $db_socket = '';
+        if (!empty($mysql_url)) {
+            // Parser l'URL MySQL (format: mysql://user:password@host:port/database)
+            if (preg_match('/mysql:\/\/([^:]+):([^@]+)@([^:]+):?(\d+)?\/([^?]+)/', $mysql_url, $matches)) {
+                $db_user = $matches[1];
+                $db_password = $matches[2];
+                $db_host = $matches[3];
+                $db_port = !empty($matches[4]) ? $matches[4] : '3306';
+                $db_name = $matches[5];
+                
+                // Vérifier si c'est un hôte Railway interne (ne fonctionne que sur Railway)
+                if ($db_host === 'mysql.railway.internal' || strpos($db_host, '.railway.internal') !== false) {
+                    error_log("ATTENTION: MYSQL_URL contient mysql.railway.internal - cet hôte ne fonctionne que sur Railway");
+                    error_log("Tentative d'utilisation de MYSQL_PUBLIC_URL à la place...");
+                    
+                    // Essayer d'utiliser MYSQL_PUBLIC_URL qui contient l'hôte public
+                    $public_url = getEnvVar('MYSQL_PUBLIC_URL');
+                    if (!empty($public_url)) {
+                        if (preg_match('/mysql:\/\/([^:]+):([^@]+)@([^:]+):?(\d+)?\/([^?]+)/', $public_url, $public_matches)) {
+                            $db_host = $public_matches[3];
+                            $db_user = $public_matches[1];
+                            $db_password = $public_matches[2];
+                            $db_port = !empty($public_matches[4]) ? $public_matches[4] : '3306';
+                            $db_name = $public_matches[5];
+                            error_log("Utilisation de l'hôte public Railway depuis MYSQL_PUBLIC_URL: $db_host");
+                        }
+                    } else {
+                        // Si MYSQL_PUBLIC_URL n'est pas disponible, afficher une erreur claire
+                        echo "<h1>Erreur de configuration Railway</h1>";
+                        echo "<p><strong>MYSQL_URL contient 'mysql.railway.internal' qui ne fonctionne que si l'application est déployée sur Railway.</strong></p>";
+                        echo "<p>Vous déployez sur Render mais utilisez Railway pour la base de données.</p>";
+                        echo "<h2>Solution :</h2>";
+                        echo "<p>Vous devez utiliser l'URL publique de Railway. Voici comment l'obtenir :</p>";
+                        echo "<ol>";
+                        echo "<li>Allez dans votre projet Railway</li>";
+                        echo "<li>Ouvrez votre service MySQL</li>";
+                        echo "<li>Allez dans l'onglet <strong>Variables</strong></li>";
+                        echo "<li>Cherchez <strong>MYSQL_PUBLIC_URL</strong> ou <strong>PUBLIC_URL</strong></li>";
+                        echo "<li>Si elle n'existe pas, allez dans l'onglet <strong>Settings</strong> de votre service MySQL</li>";
+                        echo "<li>Activez <strong>Public Networking</strong> pour exposer votre base de données publiquement</li>";
+                        echo "<li>Railway générera alors une URL publique (hôte ressemblant à <code>containers-us-west-xxx.railway.app</code>)</li>";
+                        echo "<li>Copiez cette URL publique et ajoutez-la dans Render comme <strong>MYSQL_URL</strong></li>";
+                        echo "</ol>";
+                        echo "<h3>Variables actuellement détectées :</h3>";
+                        echo "<ul>";
+                        echo "<li>MYSQL_URL: " . htmlspecialchars(substr($mysql_url, 0, 80)) . "... (contient hôte interne)</li>";
+                        echo "<li>MYSQL_PUBLIC_URL: " . htmlspecialchars(getEnvVar('MYSQL_PUBLIC_URL', 'non défini')) . "</li>";
+                        echo "</ul>";
+                        echo "<p><strong>Note :</strong> Si vous ne pouvez pas activer le réseau public sur Railway, vous devrez peut-être utiliser un autre service de base de données ou déployer votre application sur Railway également.</p>";
+                        exit;
+                    }
+                }
+                
+                error_log("Environnement Railway détecté via MYSQL_URL. Connexion: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
+            } else {
+                error_log("ATTENTION: Impossible de parser MYSQL_URL: $mysql_url");
+            }
+        }
+        
+        // Si MYSQL_URL n'est pas disponible ou n'a pas pu être parsé, utiliser les variables individuelles
+        if (empty($db_host)) {
+            $mysql_host = getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST');
+            $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER') ?: getEnvVar('MYSQ_LUSER'); // Gère aussi la faute de frappe MYSQ_LUSER
+            $mysql_password = getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD');
+            $mysql_database = getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE');
+            $mysql_port = getEnvVar('MYSQLPORT') ?: getEnvVar('MYSQL_PORT', '3306');
             
-            // Détecter si c'est Railway (mysql.railway.internal) ou Render
-            $is_railway = (strpos($db_host, 'railway') !== false);
-            $platform = $is_railway ? 'Railway' : 'Render.com';
-            error_log("Environnement $platform détecté. Utilisation des variables MySQL standard: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
+            if (!empty($mysql_host) && !empty($mysql_user) && !empty($mysql_database)) {
+                // Vérifier si c'est un hôte Railway interne (ne fonctionne que sur Railway)
+                // Si l'hôte est mysql.railway.internal, on doit utiliser l'URL publique
+                if ($mysql_host === 'mysql.railway.internal' || strpos($mysql_host, '.railway.internal') !== false) {
+                    error_log("ATTENTION: mysql.railway.internal détecté - cet hôte ne fonctionne que sur Railway");
+                    error_log("Pour se connecter depuis Render, utilisez MYSQL_URL ou l'hôte public de Railway");
+                    
+                    // Essayer de récupérer l'hôte public depuis MYSQL_PUBLIC_URL
+                    $public_url = getEnvVar('MYSQL_PUBLIC_URL');
+                    if (!empty($public_url)) {
+                        // Extraire l'hôte de l'URL publique
+                        if (preg_match('/mysql:\/\/([^:]+):([^@]+)@([^:]+):?(\d+)?\/([^?]+)/', $public_url, $url_matches)) {
+                            $db_host = $url_matches[3];
+                            $db_user = $url_matches[1];
+                            $db_password = $url_matches[2];
+                            $db_port = !empty($url_matches[4]) ? $url_matches[4] : '3306';
+                            $db_name = $url_matches[5];
+                            error_log("Utilisation de l'hôte public Railway depuis MYSQL_PUBLIC_URL: $db_host");
+                        }
+                    }
+                    
+                    // Si on n'a toujours pas d'hôte public, afficher une erreur claire
+                    if (empty($db_host) || $db_host === $mysql_host) {
+                        echo "<h1>Erreur de configuration Railway</h1>";
+                        echo "<p><strong>L'hôte 'mysql.railway.internal' ne fonctionne que si l'application est déployée sur Railway.</strong></p>";
+                        echo "<p>Vous déployez sur Render mais utilisez Railway pour la base de données.</p>";
+                        echo "<h2>Solution :</h2>";
+                        echo "<p>Railway fournit une URL publique pour se connecter depuis l'extérieur. Configurez dans Render :</p>";
+                        echo "<ol>";
+                        echo "<li>Allez dans votre projet Railway</li>";
+                        echo "<li>Ouvrez votre service MySQL</li>";
+                        echo "<li>Allez dans l'onglet <strong>Variables</strong></li>";
+                        echo "<li>Copiez la valeur de <strong>MYSQL_URL</strong> (contient l'hôte public)</li>";
+                        echo "<li>Dans Render, ajoutez cette variable dans Environment</li>";
+                        echo "<li>Ou utilisez <strong>MYSQL_PUBLIC_URL</strong> si disponible</li>";
+                        echo "</ol>";
+                        echo "<h3>Variables actuellement détectées :</h3>";
+                        echo "<ul>";
+                        echo "<li>MYSQL_HOST: " . htmlspecialchars($mysql_host) . " (interne Railway, ne fonctionne pas depuis Render)</li>";
+                        echo "<li>MYSQL_URL: " . htmlspecialchars(getEnvVar('MYSQL_URL', 'non défini')) . "</li>";
+                        echo "<li>MYSQL_PUBLIC_URL: " . htmlspecialchars(getEnvVar('MYSQL_PUBLIC_URL', 'non défini')) . "</li>";
+                        echo "<li>MYSQL_USER: " . htmlspecialchars($mysql_user ?: 'non défini') . "</li>";
+                        echo "<li>MYSQL_DATABASE: " . htmlspecialchars($mysql_database ?: 'non défini') . "</li>";
+                        echo "</ul>";
+                        exit;
+                    }
+                } else {
+                    $db_host = $mysql_host;
+                    $db_user = $mysql_user;
+                    $db_password = $mysql_password ?: getEnvVar('MYSQL_ROOT_PASSWORD', '');
+                    $db_name = $mysql_database;
+                    $db_port = $mysql_port;
+                }
+                
+                // Détecter si c'est Railway (mysql.railway.internal) ou Render
+                $is_railway = (strpos($db_host, 'railway') !== false);
+                $platform = $is_railway ? 'Railway' : 'Render.com';
+                error_log("Environnement $platform détecté. Utilisation des variables MySQL standard: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
+            }
+        }
+        
+        // Si on a réussi à obtenir les informations de connexion
+        if (!empty($db_host) && !empty($db_user) && !empty($db_name)) {
+            $db_socket = '';
         }
         // PRIORITÉ 2: Vérifier si EXTERNAL_DATABASE_HOST est défini (base externe)
         elseif (!empty(getEnvVar('EXTERNAL_DATABASE_HOST'))) {
