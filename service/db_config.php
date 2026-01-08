@@ -32,8 +32,12 @@ error_log("RENDER env: " . getEnvVar('RENDER', 'non défini'));
 error_log("IS_RENDER env: " . getEnvVar('IS_RENDER', 'non défini'));
 error_log("DB_HOST env: " . getEnvVar('DB_HOST', 'non défini'));
 error_log("MYSQLHOST env: " . getEnvVar('MYSQLHOST', 'non défini'));
+error_log("MYSQL_HOST env: " . getEnvVar('MYSQL_HOST', 'non défini'));
 error_log("MYSQLUSER env: " . getEnvVar('MYSQLUSER', 'non défini'));
+error_log("MYSQL_USER env: " . getEnvVar('MYSQL_USER', 'non défini'));
+error_log("MYSQ_LUSER env: " . getEnvVar('MYSQ_LUSER', 'non défini') . " (vérification faute de frappe)");
 error_log("MYSQLDATABASE env: " . getEnvVar('MYSQLDATABASE', 'non défini'));
+error_log("MYSQL_DATABASE env: " . getEnvVar('MYSQL_DATABASE', 'non défini'));
 error_log("EXTERNAL_DATABASE_HOST: " . (getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'non défini'));
 error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'));
 
@@ -47,9 +51,10 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
         // 2. EXTERNAL_DATABASE_* (base externe)
         // 3. DB_* (base Render générée automatiquement via render.yaml)
         
-        // PRIORITÉ 1: Vérifier les variables MySQL standard de Render
+        // PRIORITÉ 1: Vérifier les variables MySQL standard (Render, Railway, etc.)
+        // Supporte plusieurs formats : MYSQLHOST, MYSQL_HOST, MYSQ_LUSER (faute de frappe courante)
         $mysql_host = getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST');
-        $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER');
+        $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER') ?: getEnvVar('MYSQ_LUSER'); // Gère aussi la faute de frappe MYSQ_LUSER
         $mysql_password = getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD');
         $mysql_database = getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE');
         $mysql_port = getEnvVar('MYSQLPORT') ?: getEnvVar('MYSQL_PORT', '3306');
@@ -63,7 +68,10 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
             $db_port = $mysql_port;
             $db_socket = '';
             
-            error_log("Environnement Render.com détecté. Utilisation des variables MySQL standard: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
+            // Détecter si c'est Railway (mysql.railway.internal) ou Render
+            $is_railway = (strpos($db_host, 'railway') !== false);
+            $platform = $is_railway ? 'Railway' : 'Render.com';
+            error_log("Environnement $platform détecté. Utilisation des variables MySQL standard: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
         }
         // PRIORITÉ 2: Vérifier si EXTERNAL_DATABASE_HOST est défini (base externe)
         elseif (!empty(getEnvVar('EXTERNAL_DATABASE_HOST'))) {
