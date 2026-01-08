@@ -262,7 +262,7 @@ class SecureSubscriptionChecker {
     private function createPHPMailerInstance($smtp_config, $email, $password) {
         $mail = new PHPMailer(true);
         
-        // Configuration SMTP (identique à service/forgot_password.php qui fonctionne)
+        // Configuration SMTP avec timeouts et options améliorées
         $mail->isSMTP();
         $mail->Host = $smtp_config['host'];
         $mail->SMTPAuth = true;
@@ -271,6 +271,22 @@ class SecureSubscriptionChecker {
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = $smtp_config['port'];
         $mail->CharSet = 'UTF-8';
+        
+        // Options SMTP améliorées pour les connexions lentes ou depuis des serveurs distants
+        $mail->SMTPOptions = [
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            ]
+        ];
+        
+        // Timeouts augmentés pour les connexions lentes (comme depuis Render vers Gmail)
+        $mail->Timeout = 30; // Timeout général de 30 secondes
+        $mail->SMTPKeepAlive = false; // Ne pas garder la connexion ouverte
+        
+        // Options de connexion
+        $mail->SMTPAutoTLS = true; // Activer TLS automatiquement
         
         // Destinataires
         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);

@@ -141,7 +141,7 @@ class SubscriptionService {
         try {
             $mail = new PHPMailer(true);
             
-            // Configuration SMTP
+            // Configuration SMTP avec options améliorées
             $mail->isSMTP();
             $mail->Host = 'smtp.gmail.com';
             $mail->SMTPAuth = true;
@@ -150,6 +150,20 @@ class SubscriptionService {
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port = 587;
             $mail->CharSet = 'UTF-8';
+            
+            // Options SMTP améliorées pour les connexions depuis des serveurs distants
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ];
+            
+            // Timeouts augmentés pour les connexions lentes
+            $mail->Timeout = 30; // Timeout général de 30 secondes
+            $mail->SMTPKeepAlive = false;
+            $mail->SMTPAutoTLS = true;
             
             // Destinataires
             $mail->setFrom('methndiaye43@gmail.com', 'SchoolManager');

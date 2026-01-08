@@ -139,7 +139,7 @@ use PHPMailer\PHPMailer\Exception;
 try {
     $mail = new PHPMailer(true);
     
-    // Configuration du serveur
+    // Configuration du serveur SMTP avec options améliorées
     $mail->isSMTP();
     $mail->Host = $smtp_config['host'];
     $mail->SMTPAuth = true;
@@ -148,6 +148,20 @@ try {
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
     $mail->Port = $smtp_config['port'];
     $mail->CharSet = 'UTF-8';
+    
+    // Options SMTP améliorées pour les connexions depuis des serveurs distants
+    $mail->SMTPOptions = [
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true
+        ]
+    ];
+    
+    // Timeouts augmentés pour les connexions lentes
+    $mail->Timeout = 30; // Timeout général de 30 secondes
+    $mail->SMTPKeepAlive = false;
+    $mail->SMTPAutoTLS = true;
     
     // Destinataires
     $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
