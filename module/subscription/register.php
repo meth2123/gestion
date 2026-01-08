@@ -18,17 +18,24 @@ try {
     error_log("Erreur lors du chargement de paydunya_env.php: " . $e->getMessage());
 }
 
-// Ne charger db_utils.php QUE si on a besoin de la DB (lors d'un POST)
-// Cela évite les timeouts de connexion au chargement initial de la page
+// Ne charger db_utils.php QUE si on a besoin de la DB (optionnel)
+// La base de données n'est pas nécessaire pour créer un paiement PayDunya
 $link = null;
+$db_available = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         require_once __DIR__ . '/../../service/db_utils.php';
         global $link;
+        $db_available = ($link !== null);
     } catch (Exception $e) {
-        error_log("Erreur lors du chargement de db_utils.php: " . $e->getMessage());
+        error_log("Base de données non disponible (optionnel): " . $e->getMessage());
+        $db_available = false;
     }
 }
+
+// Charger le SDK PayDunya directement (ne nécessite pas de base de données)
+require_once __DIR__ . '/../../service/paydunya_sdk.php';
+$paydunya_config = require __DIR__ . '/../../service/paydunya_env.php';
 
 $error_message = '';
 $success_message = '';
@@ -47,57 +54,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = "L'adresse email n'est pas valide.";
     } else {
         try {
-            // Utilisation de la connexion globale $link
-            global $link;
-            if (!$link) {
-                throw new Exception("Erreur de connexion à la base de données");
+            // Générer un ID temporaire pour l'abonnement (sera créé dans la DB lors du callback si disponible)
+            $temp_subscription_id = 'temp_' . time() . '_' . uniqid();
+            
+            // Si la base de données est disponible, créer l'enregistrement
+            if ($db_available && $link) {
+                try {
+                    // Vérifier si les colonnes existent
+                    $result = $link->query("SHOW COLUMNS FROM subscriptions LIKE 'director_name'");
+                    $has_director_name = $result && $result->num_rows > 0;
+                    
+                    $result = $link->query("SHOW COLUMNS FROM subscriptions LIKE 'address'");
+                    $has_address = $result && $result->num_rows > 0;
+                    
+                    // Préparer la requête en fonction des colonnes disponibles
+                    if ($has_director_name && $has_address) {
+                        $sql = "INSERT INTO subscriptions (
+                            school_name, director_name, admin_email, admin_phone, 
+                            address, payment_status, created_at
+                        ) VALUES (?, ?, ?, ?, ?, 'pending', NOW())";
+                        $stmt = $link->prepare($sql);
+                        if ($stmt) {
+                            $stmt->bind_param("sssss", $school_name, $director_name, $email, $phone, $address);
+                            if ($stmt->execute()) {
+                                $temp_subscription_id = $link->insert_id;
+                            }
+                        }
+                    } else {
+                        $sql = "INSERT INTO subscriptions (
+                            school_name, admin_email, admin_phone, 
+                            payment_status, created_at
+                        ) VALUES (?, ?, ?, 'pending', NOW())";
+                        $stmt = $link->prepare($sql);
+                        if ($stmt) {
+                            $stmt->bind_param("sss", $school_name, $email, $phone);
+                            if ($stmt->execute()) {
+                                $temp_subscription_id = $link->insert_id;
+                            }
+                        }
+                    }
+                } catch (Exception $db_e) {
+                    error_log("Erreur lors de la création de l'abonnement en DB (continuons sans DB): " . $db_e->getMessage());
+                    // Continuer sans base de données
+                }
             }
             
-            // Vérifier si les colonnes existent
-            $result = $link->query("SHOW COLUMNS FROM subscriptions LIKE 'director_name'");
-            $has_director_name = $result->num_rows > 0;
+            // Créer le paiement PayDunya directement avec le SDK (sans dépendre de la DB)
+            $paydunya_sdk = new PayDunyaSDK($paydunya_config);
             
-            $result = $link->query("SHOW COLUMNS FROM subscriptions LIKE 'address'");
-            $has_address = $result->num_rows > 0;
+            // Préparer les données de la facture
+            $invoice_data = [
+                'items' => [
+                    [
+                        'name' => 'Abonnement SchoolManager',
+                        'quantity' => 1,
+                        'unit_price' => $paydunya_config['subscription']['amount'],
+                        'total_price' => $paydunya_config['subscription']['amount'],
+                        'description' => $paydunya_config['subscription']['description']
+                    ]
+                ],
+                'total_amount' => $paydunya_config['subscription']['amount'],
+                'description' => $paydunya_config['subscription']['description'],
+                'custom_data' => [
+                    'subscription_id' => $temp_subscription_id,
+                    'school_name' => $school_name,
+                    'director_name' => $director_name,
+                    'admin_email' => $email,
+                    'admin_phone' => $phone,
+                    'address' => $address
+                ]
+            ];
             
-            // Préparer la requête en fonction des colonnes disponibles
-            if ($has_director_name && $has_address) {
-                $sql = "INSERT INTO subscriptions (
-                    school_name, director_name, admin_email, admin_phone, 
-                    address, payment_status, created_at
-                ) VALUES (?, ?, ?, ?, ?, 'pending', NOW())";
-                $stmt = $link->prepare($sql);
-                $stmt->bind_param("sssss", $school_name, $director_name, $email, $phone, $address);
-            } else {
-                $sql = "INSERT INTO subscriptions (
-                    school_name, admin_email, admin_phone, 
-                    payment_status, created_at
-                ) VALUES (?, ?, ?, 'pending', NOW())";
-                $stmt = $link->prepare($sql);
-                $stmt->bind_param("sss", $school_name, $email, $phone);
-            }
-            
-            if (!$stmt) {
-                throw new Exception("Erreur de préparation de la requête : " . $link->error);
-            }
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Erreur lors de la création de l'abonnement : " . $stmt->error);
-            }
-            
-            $subscription_id = $link->insert_id;
-            
-            // Instanciation de PayDunyaService avec la connexion
-            $paydunyaService = new PayDunyaService($link);
-            
-            // Créer le paiement avec les informations de l'abonnement
-            $result = $paydunyaService->createPayment([
-                'id' => $subscription_id,
-                'school_name' => $school_name,
-                'admin_email' => $email
-            ]);
+            // Créer la facture via le SDK
+            $result = $paydunya_sdk->createInvoice($invoice_data);
 
             if ($result['success']) {
+                // Si la base de données est disponible, mettre à jour avec la référence de paiement
+                if ($db_available && $link && is_numeric($temp_subscription_id)) {
+                    try {
+                        $stmt = $link->prepare("
+                            UPDATE subscriptions 
+                            SET payment_reference = ?, 
+                                payment_status = 'pending',
+                                updated_at = NOW()
+                            WHERE id = ?
+                        ");
+                        if ($stmt) {
+                            $stmt->bind_param("si", $result['token'], $temp_subscription_id);
+                            $stmt->execute();
+                        }
+                    } catch (Exception $db_e) {
+                        error_log("Erreur lors de la mise à jour de la référence de paiement (non bloquant): " . $db_e->getMessage());
+                    }
+                }
+                
+                // Rediriger vers l'URL de paiement PayDunya
                 header("Location: " . $result['invoice_url']);
                 exit;
             } else {
@@ -105,6 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Exception $e) {
             $error_message = "Une erreur est survenue : " . $e->getMessage();
+            error_log("Erreur dans register.php: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
         }
     }
 }

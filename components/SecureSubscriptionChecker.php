@@ -189,69 +189,102 @@ class SecureSubscriptionChecker {
             $password_clean = get_clean_smtp_password();
             $password_original = $smtp_config['password'];
             
-            // Essayer avec le mot de passe nettoyé d'abord
-            $mail = $this->createPHPMailerInstance($smtp_config, $email, $password_clean);
-            $mail->Subject = 'Informations de votre abonnement SchoolManager';
-            $mail->Body = $email_body;
-            $mail->AltBody = $email_alt_body;
+            // Stratégie de connexion : essayer plusieurs méthodes pour Render
+            $attempts = [
+                ['password' => $password_clean, 'use_ssl' => false, 'description' => 'STARTTLS (port 587) avec mot de passe nettoyé'],
+                ['password' => $password_original, 'use_ssl' => false, 'description' => 'STARTTLS (port 587) avec mot de passe original'],
+                ['password' => $password_clean, 'use_ssl' => true, 'description' => 'SSL (port 465) avec mot de passe nettoyé'],
+                ['password' => $password_original, 'use_ssl' => true, 'description' => 'SSL (port 465) avec mot de passe original']
+            ];
             
-            try {
-                $mail->send();
-                return [
-                    'success' => true,
-                    'message' => 'Les informations de votre abonnement ont été envoyées à votre adresse email. Veuillez vérifier votre boîte de réception.'
-                ];
-            } catch (Exception $e) {
-                $error_message = $e->getMessage();
-                error_log("Tentative 1 (mot de passe nettoyé) échouée : " . $error_message);
-                
-                // Si l'erreur est liée à l'authentification, essayer avec le mot de passe original (avec espaces)
-                if (strpos($error_message, 'Could not authenticate') !== false || 
-                    strpos($error_message, 'SMTP Error: Could not authenticate') !== false ||
-                    strpos($error_message, 'authentication') !== false) {
+            $last_error = null;
+            $last_error_info = null;
+            
+            foreach ($attempts as $index => $attempt) {
+                try {
+                    error_log("Tentative " . ($index + 1) . " : " . $attempt['description']);
+                    $mail = $this->createPHPMailerInstance($smtp_config, $email, $attempt['password'], $attempt['use_ssl']);
+                    $mail->Subject = 'Informations de votre abonnement SchoolManager';
+                    $mail->Body = $email_body;
+                    $mail->AltBody = $email_alt_body;
                     
-                    error_log("Tentative avec mot de passe original (avec espaces)...");
-                    try {
-                        $mail = $this->createPHPMailerInstance($smtp_config, $email, $password_original);
-                        $mail->Subject = 'Informations de votre abonnement SchoolManager';
-                        $mail->Body = $email_body;
-                        $mail->AltBody = $email_alt_body;
-                        $mail->send();
-                        
-                        error_log("Succès avec mot de passe original (avec espaces)");
-                        return [
-                            'success' => true,
-                            'message' => 'Les informations de votre abonnement ont été envoyées à votre adresse email. Veuillez vérifier votre boîte de réception.'
-                        ];
-                    } catch (Exception $e2) {
-                        $error_message = $e2->getMessage();
-                        error_log("Tentative 2 (mot de passe original) échouée : " . $error_message);
-                        error_log("SMTP ErrorInfo : " . (isset($mail) ? $mail->ErrorInfo : 'N/A'));
+                    $mail->send();
+                    
+                    error_log("Succès avec : " . $attempt['description']);
+                    return [
+                        'success' => true,
+                        'message' => 'Les informations de votre abonnement ont été envoyées à votre adresse email. Veuillez vérifier votre boîte de réception.'
+                    ];
+                } catch (Exception $e) {
+                    $error_message = $e->getMessage();
+                    $error_info = isset($mail) ? $mail->ErrorInfo : 'N/A';
+                    error_log("Tentative " . ($index + 1) . " échouée : " . $error_message);
+                    error_log("SMTP ErrorInfo : " . $error_info);
+                    
+                    $last_error = $error_message;
+                    $last_error_info = $error_info;
+                    
+                    // Si c'est une erreur de connexion, continuer avec la tentative suivante
+                    if (strpos($error_message, 'Could not connect') !== false || 
+                        strpos($error_message, 'Failed to connect') !== false ||
+                        strpos($error_message, 'Connection timed out') !== false ||
+                        strpos($error_message, 'Connection refused') !== false) {
+                        // Continuer avec la tentative suivante
+                        continue;
                     }
-                } else {
-                    // Si ce n'est pas une erreur d'authentification, propager l'erreur
-                    throw $e;
+                    
+                    // Si c'est une erreur d'authentification, continuer aussi
+                    if (strpos($error_message, 'Could not authenticate') !== false || 
+                        strpos($error_message, 'authentication') !== false) {
+                        // Continuer avec la tentative suivante
+                        continue;
+                    }
+                    
+                    // Pour les autres erreurs, on peut aussi continuer
+                    continue;
                 }
             }
             
-            // Si on arrive ici, les deux tentatives ont échoué
-            error_log("Les deux tentatives d'authentification SMTP ont échoué");
-            error_log("SMTP ErrorInfo final : " . (isset($mail) ? $mail->ErrorInfo : 'N/A'));
+            // Si toutes les tentatives ont échoué
+            error_log("Toutes les tentatives de connexion SMTP ont échoué");
+            error_log("Dernière erreur : " . $last_error);
+            error_log("Dernier SMTP ErrorInfo : " . $last_error_info);
+            
+            // Message d'erreur plus explicite selon le type d'erreur
+            $user_message = 'Erreur lors de l\'envoi de l\'email. ';
+            if (strpos($last_error, 'Could not connect') !== false || 
+                strpos($last_error, 'Failed to connect') !== false) {
+                $user_message .= 'Impossible de se connecter au serveur SMTP. Cela peut être dû à des restrictions réseau sur le serveur. Veuillez réessayer plus tard ou contacter l\'administrateur.';
+            } elseif (strpos($last_error, 'Could not authenticate') !== false) {
+                $user_message .= 'Erreur d\'authentification SMTP. Veuillez vérifier que le mot de passe d\'application Gmail est correct et valide.';
+            } else {
+                $user_message .= 'Erreur SMTP : ' . $last_error;
+            }
             
             return [
                 'success' => false,
-                'message' => 'Erreur d\'authentification SMTP. Veuillez vérifier que le mot de passe d\'application Gmail est correct et valide. Si le problème persiste, contactez l\'administrateur.'
+                'message' => $user_message
             ];
             
         } catch (Exception $e) {
             // Gérer les autres erreurs non liées à l'authentification
             $error_message = $e->getMessage();
-            error_log("Erreur PHPMailer (non-authentification) : " . $error_message);
+            error_log("Erreur PHPMailer générale : " . $error_message);
             error_log("SMTP ErrorInfo : " . (isset($mail) ? $mail->ErrorInfo : 'N/A'));
+            
+            // Message d'erreur plus explicite pour l'utilisateur
+            $user_message = 'Erreur lors de l\'envoi de l\'email. ';
+            if (strpos($error_message, 'Could not connect') !== false || 
+                strpos($error_message, 'Failed to connect') !== false ||
+                strpos($error_message, 'Connection timed out') !== false) {
+                $user_message .= 'Impossible de se connecter au serveur SMTP. Cela peut être dû à des restrictions réseau. Veuillez réessayer plus tard.';
+            } else {
+                $user_message .= $error_message;
+            }
             
             return [
                 'success' => false,
-                'message' => 'Erreur lors de l\'envoi de l\'email : ' . $error_message
+                'message' => $user_message
             ];
         }
     }
@@ -259,34 +292,47 @@ class SecureSubscriptionChecker {
     /**
      * Crée une instance PHPMailer configurée
      */
-    private function createPHPMailerInstance($smtp_config, $email, $password) {
+    private function createPHPMailerInstance($smtp_config, $email, $password, $use_ssl = false) {
         $mail = new PHPMailer(true);
         
-        // Configuration SMTP avec timeouts et options améliorées
+        // Configuration SMTP avec timeouts et options améliorées pour Render
         $mail->isSMTP();
         $mail->Host = $smtp_config['host'];
         $mail->SMTPAuth = true;
         $mail->Username = $smtp_config['username'];
         $mail->Password = $password;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = $smtp_config['port'];
+        
+        // Utiliser SSL (port 465) ou STARTTLS (port 587) selon le paramètre
+        if ($use_ssl) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->Port = 465;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = $smtp_config['port'];
+        }
+        
         $mail->CharSet = 'UTF-8';
         
-        // Options SMTP améliorées pour les connexions lentes ou depuis des serveurs distants
+        // Options SMTP améliorées pour les connexions depuis Render (serveurs distants)
         $mail->SMTPOptions = [
             'ssl' => [
                 'verify_peer' => false,
                 'verify_peer_name' => false,
-                'allow_self_signed' => true
+                'allow_self_signed' => true,
+                'crypto_method' => STREAM_CRYPTO_METHOD_TLS_CLIENT
             ]
         ];
         
-        // Timeouts augmentés pour les connexions lentes (comme depuis Render vers Gmail)
-        $mail->Timeout = 30; // Timeout général de 30 secondes
+        // Timeouts augmentés pour les connexions depuis Render vers Gmail
+        $mail->Timeout = 60; // Timeout général de 60 secondes (augmenté pour Render)
         $mail->SMTPKeepAlive = false; // Ne pas garder la connexion ouverte
         
-        // Options de connexion
+        // Options de connexion améliorées pour Render
         $mail->SMTPAutoTLS = true; // Activer TLS automatiquement
+        $mail->SMTPDebug = 0; // Désactiver le debug en production (mettre à 2 pour debug)
+        
+        // Options supplémentaires pour améliorer la connexion depuis Render
+        $mail->SMTPAuth = true;
         
         // Destinataires
         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);

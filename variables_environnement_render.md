@@ -28,6 +28,7 @@ Ce document liste **toutes les variables d'environnement réellement utilisées 
 - `EXTERNAL_DATABASE_PORT` (défaut: 3306)
 - `WHATSAPP_API_KEY` (mode simulation si absent)
 - `WHATSAPP_PHONE_NUMBER_ID` (mode simulation si absent)
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME` (valeurs par défaut si absentes)
 
 ### Variables NON UTILISÉES dans le code PHP :
 - `APP_ENV` (défini dans render.yaml mais non utilisé)
@@ -40,6 +41,7 @@ Ce document liste **toutes les variables d'environnement réellement utilisées 
 3. [Variables de l'application](#variables-de-lapplication)
 4. [Variables PayDunya (Paiement)](#variables-paydunya-paiement)
 5. [Variables WhatsApp (Optionnel)](#variables-whatsapp-optionnel)
+6. [Variables SMTP (Email)](#variables-smtp-email)
 
 ---
 
@@ -153,6 +155,47 @@ Ces variables sont nécessaires uniquement si vous souhaitez activer l'envoi de 
 
 ---
 
+## 📧 Variables SMTP (Email)
+
+Ces variables permettent de configurer l'envoi d'emails via SMTP. Si elles ne sont pas définies, l'application utilisera les valeurs par défaut (Gmail).
+
+**Fichiers utilisant ces variables :** `service/smtp_config.php` (lignes 15-21), `components/SecureSubscriptionChecker.php`
+
+| Variable | Exemple | Description | Obligatoire | Utilisé dans |
+|----------|---------|-------------|-------------|--------------|
+| `SMTP_HOST` | `smtp.gmail.com` | Serveur SMTP (par défaut: smtp.gmail.com) | ❌ Non | `smtp_config.php` |
+| `SMTP_PORT` | `587` | Port SMTP (par défaut: 587 pour STARTTLS, 465 pour SSL) | ❌ Non | `smtp_config.php` |
+| `SMTP_USERNAME` | `votre-email@gmail.com` | Nom d'utilisateur SMTP (par défaut: methndiaye43@gmail.com) | ❌ Non | `smtp_config.php` |
+| `SMTP_PASSWORD` | `votre_mot_de_passe_app` | Mot de passe d'application SMTP (par défaut: valeur hardcodée) | ❌ Non | `smtp_config.php` |
+| `SMTP_FROM_EMAIL` | `votre-email@gmail.com` | Email expéditeur (par défaut: methndiaye43@gmail.com) | ❌ Non | `smtp_config.php` |
+| `SMTP_FROM_NAME` | `SchoolManager` | Nom de l'expéditeur (par défaut: SchoolManager) | ❌ Non | `smtp_config.php` |
+| `SMTP_ENCRYPTION` | `tls` | Type de chiffrement (tls ou ssl, par défaut: tls) | ❌ Non | `smtp_config.php` |
+
+**Note :** 
+- ⚠️ **Recommandé sur Render.com :** Définir ces variables pour éviter d'exposer les identifiants SMTP dans le code
+- L'application essaie automatiquement plusieurs méthodes de connexion (port 587 avec STARTTLS, puis port 465 avec SSL) pour améliorer la compatibilité avec Render
+- Pour Gmail, vous devez utiliser un **mot de passe d'application** (pas votre mot de passe Gmail normal)
+- Les timeouts sont augmentés (60 secondes) pour améliorer la connexion depuis Render
+- Si vous rencontrez des erreurs de connexion SMTP sur Render, vérifiez que les ports 587 et 465 ne sont pas bloqués
+
+**Configuration recommandée pour Gmail sur Render :**
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=votre-email@gmail.com
+SMTP_PASSWORD=votre_mot_de_passe_application_gmail
+SMTP_FROM_EMAIL=votre-email@gmail.com
+SMTP_FROM_NAME=SchoolManager
+SMTP_ENCRYPTION=tls
+```
+
+**Alternative : Services d'email tiers recommandés pour Render :**
+- **SendGrid** : `SMTP_HOST=smtp.sendgrid.net`, `SMTP_PORT=587`
+- **Mailgun** : `SMTP_HOST=smtp.mailgun.org`, `SMTP_PORT=587`
+- **Amazon SES** : `SMTP_HOST=email-smtp.region.amazonaws.com`, `SMTP_PORT=587`
+
+---
+
 ## 📝 Configuration dans Render.com
 
 ### Étapes pour configurer les variables d'environnement :
@@ -190,6 +233,15 @@ PAYDUNYA_TOKEN=votre_token
 # WhatsApp (Optionnel)
 WHATSAPP_API_KEY=votre_cle_whatsapp
 WHATSAPP_PHONE_NUMBER_ID=votre_phone_id
+
+# SMTP (Email - Optionnel mais recommandé)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USERNAME=votre-email@gmail.com
+SMTP_PASSWORD=votre_mot_de_passe_application
+SMTP_FROM_EMAIL=votre-email@gmail.com
+SMTP_FROM_NAME=SchoolManager
+SMTP_ENCRYPTION=tls
 ```
 
 ### Exemple de configuration avec base de données Render.com (via render.yaml) :
