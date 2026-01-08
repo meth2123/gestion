@@ -146,6 +146,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import'])) {
                 $stmt->bind_param("sssss", $classId, $className, $section, $room, $admin_id);
                 $stmt->execute();
 
+                // Créer automatiquement un salon de chat pour la nouvelle classe
+                // (au lieu d'utiliser un trigger MySQL qui nécessite des permissions spéciales)
+                try {
+                    // Vérifier si la table chat_rooms existe
+                    $check_table = $link->query("SHOW TABLES LIKE 'chat_rooms'");
+                    if ($check_table && $check_table->num_rows > 0) {
+                        // Vérifier si un salon existe déjà pour cette classe
+                        $check_chat = $link->prepare("SELECT id FROM chat_rooms WHERE class_id = ? AND is_class_room = 1");
+                        $check_chat->bind_param("s", $classId);
+                        $check_chat->execute();
+                        $chat_result = $check_chat->get_result();
+                        
+                        if ($chat_result->num_rows == 0) {
+                            // Créer le salon de chat
+                            $chat_sql = "INSERT INTO chat_rooms (name, class_id, description, is_class_room) VALUES (?, ?, ?, 1)";
+                            $chat_stmt = $link->prepare($chat_sql);
+                            if ($chat_stmt) {
+                                $chat_name = "Chat de la classe " . $className;
+                                $chat_description = "Salon de discussion pour les étudiants de la classe " . $className;
+                                $chat_stmt->bind_param("sss", $chat_name, $classId, $chat_description);
+                                $chat_stmt->execute();
+                            }
+                        }
+                    }
+                } catch (Exception $e) {
+                    // Logger l'erreur mais ne pas bloquer l'import
+                    error_log("Erreur lors de la création du salon de chat pour la classe {$classId}: " . $e->getMessage());
+                }
+
                 $successCount++;
 
             } catch (Exception $e) {

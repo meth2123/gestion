@@ -1,3 +1,11 @@
+-- ATTENTION: Ce trigger nécessite des permissions TRIGGER sur MySQL
+-- Sur certains hébergeurs (comme Render.com), ces permissions ne sont pas disponibles
+-- 
+-- SOLUTION: La création du salon de chat est maintenant gérée directement dans le code PHP
+-- Voir: module/admin/addClass.php et module/admin/importClasses.php
+-- 
+-- Ce fichier est conservé pour référence mais n'est plus nécessaire
+-- 
 -- Créer un déclencheur pour créer automatiquement un salon de chat pour chaque nouvelle classe
 DELIMITER //
 

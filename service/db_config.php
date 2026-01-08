@@ -14,12 +14,15 @@ function getEnvVar($key, $default = null) {
 
 // Détection spécifique de Render.com (PRIORITAIRE - vérifier en premier)
 // Render utilise Docker mais a ses propres variables d'environnement
+// Render génère automatiquement des variables MySQL standard : MYSQLHOST, MYSQLUSER, MYSQLPASSWORD, etc.
 $is_render = (
     getEnvVar('RENDER') == 'true' || 
     getEnvVar('IS_RENDER') == 'true' || 
     strpos(getEnvVar('RENDER_SERVICE_ID', ''), 'srv-') === 0 ||
     !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) || // Si EXTERNAL_DATABASE_HOST est défini
     getEnvVar('RENDER_EXTERNAL_HOST') !== null || // Variable Render spécifique
+    !empty(getEnvVar('MYSQLHOST')) || // Variable MySQL standard de Render
+    !empty(getEnvVar('MYSQL_HOST')) || // Alternative
     (file_exists('/.dockerenv') && getEnvVar('DB_HOST') && getEnvVar('DB_HOST') !== 'db') // Docker mais pas le service local 'db'
 );
 
@@ -28,6 +31,9 @@ error_log("Détection d'environnement - RENDER: " . ($is_render ? 'true' : 'fals
 error_log("RENDER env: " . getEnvVar('RENDER', 'non défini'));
 error_log("IS_RENDER env: " . getEnvVar('IS_RENDER', 'non défini'));
 error_log("DB_HOST env: " . getEnvVar('DB_HOST', 'non défini'));
+error_log("MYSQLHOST env: " . getEnvVar('MYSQLHOST', 'non défini'));
+error_log("MYSQLUSER env: " . getEnvVar('MYSQLUSER', 'non défini'));
+error_log("MYSQLDATABASE env: " . getEnvVar('MYSQLDATABASE', 'non défini'));
 error_log("EXTERNAL_DATABASE_HOST: " . (getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'non défini'));
 error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'));
 
@@ -36,13 +42,32 @@ error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'))
 if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
     // Définir des valeurs par défaut pour Render.com si détecté (PRIORITÉ)
     if ($is_render) {
-        // Sur Render.com, on peut utiliser soit EXTERNAL_DATABASE_* (base externe)
-        // soit DB_* (base Render générée automatiquement via render.yaml)
+        // Sur Render.com, on peut utiliser plusieurs sources de configuration :
+        // 1. Variables MySQL standard de Render (MYSQLHOST, MYSQLUSER, etc.) - PRIORITÉ
+        // 2. EXTERNAL_DATABASE_* (base externe)
+        // 3. DB_* (base Render générée automatiquement via render.yaml)
         
-        // Vérifier d'abord si EXTERNAL_DATABASE_HOST est défini (base externe)
-        $external_host = getEnvVar('EXTERNAL_DATABASE_HOST');
+        // PRIORITÉ 1: Vérifier les variables MySQL standard de Render
+        $mysql_host = getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST');
+        $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER');
+        $mysql_password = getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD');
+        $mysql_database = getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE');
+        $mysql_port = getEnvVar('MYSQLPORT') ?: getEnvVar('MYSQL_PORT', '3306');
         
-        if (!empty($external_host)) {
+        if (!empty($mysql_host) && !empty($mysql_user) && !empty($mysql_database)) {
+            // Utiliser les variables MySQL standard de Render
+            $db_host = $mysql_host;
+            $db_user = $mysql_user;
+            $db_password = $mysql_password ?: getEnvVar('MYSQL_ROOT_PASSWORD', '');
+            $db_name = $mysql_database;
+            $db_port = $mysql_port;
+            $db_socket = '';
+            
+            error_log("Environnement Render.com détecté. Utilisation des variables MySQL standard: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
+        }
+        // PRIORITÉ 2: Vérifier si EXTERNAL_DATABASE_HOST est défini (base externe)
+        elseif (!empty(getEnvVar('EXTERNAL_DATABASE_HOST'))) {
+            $external_host = getEnvVar('EXTERNAL_DATABASE_HOST');
             // Validation : EXTERNAL_DATABASE_HOST ne doit pas être 'db' (nom de service Docker local)
             if ($external_host === 'db' || $external_host === 'localhost') {
                 error_log("ERREUR CRITIQUE: EXTERNAL_DATABASE_HOST est défini à '$external_host' - c'est incorrect pour Render.com");
@@ -99,8 +124,9 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
             }
             
             error_log("Environnement Render.com détecté. Utilisation de la base de données EXTERNE: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
-        } else {
-            // Utiliser les variables DB_* générées automatiquement par Render (via render.yaml)
+        }
+        // PRIORITÉ 3: Utiliser les variables DB_* générées automatiquement par Render (via render.yaml)
+        else {
             $db_host = getEnvVar('DB_HOST');
             $db_user = getEnvVar('DB_USER');
             $db_password = getEnvVar('DB_PASSWORD');
