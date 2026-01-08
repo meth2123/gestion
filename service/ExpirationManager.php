@@ -20,12 +20,14 @@ class ExpirationManager {
             $this->db->begin_transaction();
 
             // Trouver tous les abonnements completed qui sont expirés
+            // Utiliser NOW() au lieu de CURDATE() pour comparer avec l'heure exacte
             $stmt = $this->db->prepare("
                 SELECT id, school_name, admin_email, expiry_date
                 FROM subscriptions 
                 WHERE payment_status = 'completed' 
-                AND DATE(expiry_date) < CURDATE()
+                AND expiry_date < NOW()
                 AND expiry_date != '0000-00-00 00:00:00'
+                AND expiry_date IS NOT NULL
             ");
             
             $stmt->execute();

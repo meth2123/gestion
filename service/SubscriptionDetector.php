@@ -1,11 +1,14 @@
 <?php
 require_once __DIR__ . '/mysqlcon.php';
+require_once __DIR__ . '/auto_fix_expired.php';
 
 class SubscriptionDetector {
     private $db;
     
     public function __construct($db) {
         $this->db = $db;
+        // Corriger automatiquement les abonnements expirés avant toute détection
+        autoFixExpiredSubscriptions($this->db);
     }
     
     /**

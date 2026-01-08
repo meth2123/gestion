@@ -65,11 +65,15 @@ class SubscriptionService {
     public function handleExpiredSubscriptions() {
         try {
             // Trouver les abonnements expirés
+            // Utiliser NOW() pour comparer avec l'heure exacte
             $stmt = $this->db->prepare("
                 UPDATE subscriptions s
-                SET payment_status = 'expired'
+                SET payment_status = 'expired',
+                    updated_at = NOW()
                 WHERE payment_status = 'completed'
                 AND expiry_date < NOW()
+                AND expiry_date != '0000-00-00 00:00:00'
+                AND expiry_date IS NOT NULL
             ");
             
             $stmt->execute();

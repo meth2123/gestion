@@ -187,4 +187,10 @@ if (!$link->set_charset("utf8")) {
 $link->query("SET sql_mode = ''");
 
 error_log("Connexion à la base de données réussie");
+
+// Charger la fonction de correction automatique des abonnements expirés
+require_once __DIR__ . '/auto_fix_expired.php';
+
+// Corriger automatiquement les abonnements expirés (une fois par connexion, avec cache)
+autoFixExpiredSubscriptions($link);
 ?>

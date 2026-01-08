@@ -1,6 +1,10 @@
 <?php
 session_start();
 include_once('mysqlcon.php');
+require_once __DIR__ . '/auto_fix_expired.php';
+
+// Corriger automatiquement les abonnements expirés avant de vérifier l'accès
+autoFixExpiredSubscriptions($link);
 
 // Vérifier si les variables POST existent
 if (!isset($_POST['myid']) || !isset($_POST['mypassword'])) {
