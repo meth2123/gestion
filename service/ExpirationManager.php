@@ -94,7 +94,7 @@ class ExpirationManager {
     }
 
     /**
-     * Vérifie les abonnements qui vont expirer bientôt (7 jours)
+     * Vérifie les abonnements qui vont expirer bientôt (5 jours)
      */
     public function checkUpcomingExpirations() {
         try {
@@ -103,7 +103,7 @@ class ExpirationManager {
                        DATEDIFF(s.expiry_date, CURDATE()) as days_until_expiry
                 FROM subscriptions s
                 WHERE s.payment_status = 'completed'
-                AND DATE(s.expiry_date) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                AND DATE(s.expiry_date) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 5 DAY)
                 AND s.expiry_date != '0000-00-00 00:00:00'
                 AND NOT EXISTS (
                     SELECT 1 FROM subscription_notifications n

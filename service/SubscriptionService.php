@@ -15,13 +15,13 @@ class SubscriptionService {
      */
     public function checkExpiringSubscriptions() {
         try {
-            // Trouver les abonnements qui expirent dans les 7 jours
+            // Trouver les abonnements qui expirent dans les 5 jours
             $stmt = $this->db->prepare("
                 SELECT s.*, u.id as user_id, u.email, u.username
                 FROM subscriptions s
                 JOIN users u ON u.school_id = s.id
                 WHERE s.payment_status = 'completed'
-                AND s.expiry_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 7 DAY)
+                AND s.expiry_date BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 5 DAY)
                 AND NOT EXISTS (
                     SELECT 1 FROM subscription_notifications n
                     WHERE n.subscription_id = s.id

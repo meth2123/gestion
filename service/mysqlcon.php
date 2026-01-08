@@ -7,10 +7,27 @@ if (session_status() === PHP_SESSION_NONE) {
 // Charger la configuration de la base de données
 require_once __DIR__ . '/db_config.php';
 
-$host = $db_host;
-$username = $db_user;
-$password = $db_password;
-$database_name = $db_name;
+// Vérifier et définir les valeurs par défaut si elles ne sont pas définies
+// Validation stricte pour éviter les erreurs de connexion
+$host = isset($db_host) && !empty(trim($db_host)) && trim($db_host) !== 'root' ? trim($db_host) : 'localhost';
+$username = isset($db_user) && !empty($db_user) ? $db_user : 'root';
+$password = isset($db_password) ? $db_password : '';
+$database_name = isset($db_name) && !empty($db_name) ? $db_name : 'gestion';
+
+// Validation supplémentaire : s'assurer que $host n'est pas "root" (erreur courante)
+if ($host === 'root') {
+    error_log("ERREUR CRITIQUE: Le nom d'hôte de la base de données est 'root' au lieu d'un nom d'hôte valide.");
+    error_log("db_host depuis db_config.php: " . (isset($db_host) ? $db_host : 'NON DÉFINI'));
+    error_log("Vérifiez que les variables d'environnement sont correctement configurées sur Render.com");
+    die("Erreur de configuration de la base de données : le nom d'hôte ne peut pas être 'root'. Veuillez vérifier les variables d'environnement EXTERNAL_DATABASE_HOST sur Render.com.");
+}
+
+// Définir le port et le socket avec des valeurs par défaut
+$db_port = isset($db_port) && !empty($db_port) ? $db_port : '3306';
+$db_socket = isset($db_socket) ? $db_socket : '';
+
+// Journaliser la configuration utilisée pour le débogage
+error_log("Configuration DB - Host: $host, User: $username, Database: $database_name, Port: $db_port");
 
 // Activer l'affichage des erreurs
 ini_set('display_errors', 1);

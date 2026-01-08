@@ -143,9 +143,13 @@ if(isset($_GET['error'])) {
                         <?php echo $smartButton->render(null, null, 'large'); ?>
                     </div>
                     
-                    <!-- Vérificateur sécurisé de statut d'abonnement -->
+                    <!-- Lien vers la page de vérification d'abonnement -->
                     <div class="mt-5">
-                        <?php echo $statusChecker->renderSecureChecker(); ?>
+                        <div class="text-center">
+                            <a href="check_subscription.php" class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-search me-2"></i>Vérifier mon abonnement
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
