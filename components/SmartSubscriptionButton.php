@@ -58,10 +58,10 @@ class SmartSubscriptionButton {
                     <i class='fas fa-crown me-2'></i>S'abonner
                 </button>
                 <ul class='dropdown-menu'>
-                    <li><a class='dropdown-item' href='/gestion/module/subscription/register.php'>
+                    <li><a class='dropdown-item' href='module/subscription/register.php'>
                         <i class='fas fa-plus-circle me-2'></i>Nouvel abonnement
                     </a></li>
-                    <li><a class='dropdown-item' href='/gestion/login.php'>
+                    <li><a class='dropdown-item' href='login.php'>
                         <i class='fas fa-sign-in-alt me-2'></i>Se connecter
                     </a></li>
                 </ul>
@@ -103,10 +103,10 @@ class SmartSubscriptionButton {
         }
         
         $dropdownItems .= "
-        <li><a class='dropdown-item' href='/gestion/module/subscription/dashboard.php'>
+        <li><a class='dropdown-item' href='module/subscription/dashboard.php'>
             <i class='fas fa-chart-line me-2'></i>Tableau de bord
         </a></li>
-        <li><a class='dropdown-item' href='/gestion/module/subscription/register.php'>
+        <li><a class='dropdown-item' href='module/subscription/register.php'>
             <i class='fas fa-plus-circle me-2'></i>Nouvel abonnement
         </a></li>";
         
