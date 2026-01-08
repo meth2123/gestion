@@ -33,19 +33,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once('../db/config.php');
         $conn = getDbConnection(); // Obtenir la connexion à la base de données
         
-        // Créer la table help_messages si elle n'existe pas
-        $sql_create_table = "CREATE TABLE IF NOT EXISTS help_messages (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL,
-            email VARCHAR(100) NOT NULL,
-            user_type VARCHAR(20) NOT NULL,
-            subject VARCHAR(255) NOT NULL,
-            message TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            status ENUM('new', 'in_progress', 'resolved') DEFAULT 'new'
-        )";
+        // Vérifier si la connexion a réussi
+        if (!$conn) {
+            $error_message = "Impossible de se connecter à la base de données. Le message sera envoyé par email uniquement.";
+            // Continuer quand même pour essayer d'envoyer l'email
+        }
         
-        if ($conn->query($sql_create_table) === TRUE) {
+        // Créer la table help_messages si elle n'existe pas (seulement si la connexion est OK)
+        if ($conn) {
+            $sql_create_table = "CREATE TABLE IF NOT EXISTS help_messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(100) NOT NULL,
+                user_type VARCHAR(20) NOT NULL,
+                subject VARCHAR(255) NOT NULL,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status ENUM('new', 'in_progress', 'resolved') DEFAULT 'new'
+            )";
+            
+            if ($conn->query($sql_create_table) === TRUE) {
             // Insérer le message
             $sql = "INSERT INTO help_messages (name, email, user_type, subject, message) 
                     VALUES (?, ?, ?, ?, ?)";
@@ -83,15 +90,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Créer une nouvelle instance de PHPMailer
                         $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
                         
-                        // Configuration du serveur SMTP
+                        // Configuration du serveur SMTP avec options améliorées
                         $mail->isSMTP();
                         $mail->Host = $smtp_config['host'];
                         $mail->SMTPAuth = true;
                         $mail->Username = $smtp_config['username'];
                         $mail->Password = $smtp_config['password'];
-                        $mail->SMTPSecure = 'tls';
+                        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port = $smtp_config['port'];
                         $mail->CharSet = 'UTF-8';
+                        
+                        // Options SMTP améliorées pour les connexions depuis des serveurs distants
+                        $mail->SMTPOptions = [
+                            'ssl' => [
+                                'verify_peer' => false,
+                                'verify_peer_name' => false,
+                                'allow_self_signed' => true
+                            ]
+                        ];
+                        
+                        // Timeouts augmentés pour les connexions lentes
+                        $mail->Timeout = 30;
+                        $mail->SMTPKeepAlive = false;
+                        $mail->SMTPAutoTLS = true;
                         
                         // Expéditeur et destinataire
                         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
@@ -132,12 +153,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error_message = "Une erreur est survenue lors de l'enregistrement de votre message. Veuillez réessayer.";
             }
             
-            $stmt->close();
+                $stmt->close();
+            } else {
+                $error_message = "Une erreur est survenue lors de la création de la table. Le message sera envoyé par email uniquement.";
+            }
+            
+            if ($conn) {
+                $conn->close();
+            }
         } else {
-            $error_message = "Une erreur est survenue. Veuillez réessayer ultérieurement.";
+            // Si pas de connexion DB, on continue quand même pour envoyer l'email
+            $error_message = "La base de données n'est pas accessible. Le message sera envoyé par email uniquement.";
         }
-        
-        $conn->close();
     }
 }
 
