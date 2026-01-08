@@ -12,23 +12,29 @@ function getEnvVar($key, $default = null) {
     return $value !== false ? $value : $default;
 }
 
-// Détection spécifique de Render.com
+// Détection spécifique de Render.com (PRIORITAIRE - vérifier en premier)
+// Render utilise Docker mais a ses propres variables d'environnement
 $is_render = (
     getEnvVar('RENDER') == 'true' || 
     getEnvVar('IS_RENDER') == 'true' || 
     strpos(getEnvVar('RENDER_SERVICE_ID', ''), 'srv-') === 0 ||
-    !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) // Si EXTERNAL_DATABASE_HOST est défini, on est probablement sur Render
+    !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) || // Si EXTERNAL_DATABASE_HOST est défini
+    getEnvVar('RENDER_EXTERNAL_HOST') !== null || // Variable Render spécifique
+    (file_exists('/.dockerenv') && getEnvVar('DB_HOST') && getEnvVar('DB_HOST') !== 'db') // Docker mais pas le service local 'db'
 );
 
 // Journaliser la détection de l'environnement
 error_log("Détection d'environnement - RENDER: " . ($is_render ? 'true' : 'false'));
 error_log("RENDER env: " . getEnvVar('RENDER', 'non défini'));
 error_log("IS_RENDER env: " . getEnvVar('IS_RENDER', 'non défini'));
+error_log("DB_HOST env: " . getEnvVar('DB_HOST', 'non défini'));
 error_log("EXTERNAL_DATABASE_HOST: " . (getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'non défini'));
+error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'));
 
 // Vérifier si nous sommes dans un environnement de production (Docker, Render.com, etc.)
-if (file_exists('/.dockerenv') || getenv('DB_HOST') || $is_render) {
-    // Définir des valeurs par défaut pour Render.com si détecté
+// PRIORITÉ: Render.com d'abord, puis Docker local
+if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
+    // Définir des valeurs par défaut pour Render.com si détecté (PRIORITÉ)
     if ($is_render) {
         // Sur Render.com, on peut utiliser soit EXTERNAL_DATABASE_* (base externe)
         // soit DB_* (base Render générée automatiquement via render.yaml)
@@ -37,6 +43,35 @@ if (file_exists('/.dockerenv') || getenv('DB_HOST') || $is_render) {
         $external_host = getEnvVar('EXTERNAL_DATABASE_HOST');
         
         if (!empty($external_host)) {
+            // Validation : EXTERNAL_DATABASE_HOST ne doit pas être 'db' (nom de service Docker local)
+            if ($external_host === 'db' || $external_host === 'localhost') {
+                error_log("ERREUR CRITIQUE: EXTERNAL_DATABASE_HOST est défini à '$external_host' - c'est incorrect pour Render.com");
+                echo "<h1>Erreur de configuration Render.com</h1>";
+                echo "<p><strong>EXTERNAL_DATABASE_HOST est défini à 'db' ou 'localhost', ce qui est incorrect.</strong></p>";
+                echo "<p>'db' est le nom d'un service Docker local, pas une adresse de base de données sur Render.</p>";
+                echo "<h2>Solutions :</h2>";
+                echo "<h3>Option 1 : Utiliser la base de données Render (recommandé)</h3>";
+                echo "<p>Si vous utilisez la base de données MySQL créée via render.yaml :</p>";
+                echo "<ol>";
+                echo "<li>Supprimez toutes les variables EXTERNAL_DATABASE_* du dashboard Render</li>";
+                echo "<li>Laissez Render générer automatiquement les variables DB_* via render.yaml</li>";
+                echo "<li>Les variables DB_HOST, DB_USER, DB_PASSWORD, DB_NAME seront créées automatiquement</li>";
+                echo "</ol>";
+                echo "<h3>Option 2 : Utiliser une vraie base de données externe</h3>";
+                echo "<p>Si vous utilisez une base externe (PlanetScale, Railway, etc.) :</p>";
+                echo "<ol>";
+                echo "<li>Remplacez EXTERNAL_DATABASE_HOST par l'adresse réelle de votre base (ex: mysql.example.com)</li>";
+                echo "<li>Ne mettez pas 'db' ou 'localhost'</li>";
+                echo "</ol>";
+                echo "<h3>Configuration actuelle détectée :</h3>";
+                echo "<ul>";
+                echo "<li>EXTERNAL_DATABASE_HOST: <strong>" . htmlspecialchars($external_host) . "</strong> (incorrect)</li>";
+                echo "<li>EXTERNAL_DATABASE_USER: " . htmlspecialchars(getEnvVar('EXTERNAL_DATABASE_USER', 'non défini')) . "</li>";
+                echo "<li>EXTERNAL_DATABASE_NAME: " . htmlspecialchars(getEnvVar('EXTERNAL_DATABASE_NAME', 'non défini')) . "</li>";
+                echo "</ul>";
+                exit;
+            }
+            
             // Utiliser les paramètres de connexion externes pour Render.com
             $db_host = $external_host;
             $db_user = getEnvVar('EXTERNAL_DATABASE_USER');
@@ -55,7 +90,7 @@ if (file_exists('/.dockerenv') || getenv('DB_HOST') || $is_render) {
                 echo "<p>L'application n'est pas correctement configurée pour Render.com.</p>";
                 echo "<p>Si vous utilisez une base de données externe, veuillez configurer les variables suivantes :</p>";
                 echo "<ul>";
-                echo "<li>EXTERNAL_DATABASE_HOST</li>";
+                echo "<li>EXTERNAL_DATABASE_HOST (doit être une adresse réelle, pas 'db')</li>";
                 echo "<li>EXTERNAL_DATABASE_USER</li>";
                 echo "<li>EXTERNAL_DATABASE_PASSWORD</li>";
                 echo "<li>EXTERNAL_DATABASE_NAME</li>";
@@ -80,10 +115,67 @@ if (file_exists('/.dockerenv') || getenv('DB_HOST') || $is_render) {
                 error_log("DB_USER: " . ($db_user ?: 'VIDE'));
                 error_log("DB_NAME: " . ($db_name ?: 'VIDE'));
                 error_log("Vérifiez que render.yaml configure correctement la base de données avec 'fromDatabase'");
-                echo "<h1>Erreur de configuration</h1>";
-                echo "<p>Les variables de base de données DB_* ne sont pas définies sur Render.com.</p>";
-                echo "<p>Vérifiez que votre fichier render.yaml configure correctement la base de données avec 'fromDatabase'.</p>";
-                echo "<p>Ou configurez les variables EXTERNAL_DATABASE_* si vous utilisez une base externe.</p>";
+                echo "<h1>Erreur de configuration Render.com</h1>";
+                echo "<p><strong>Les variables de base de données DB_* ne sont pas définies sur Render.com.</strong></p>";
+                echo "<h2>Solutions :</h2>";
+                echo "<h3>Option 1 : Vérifier que la base de données est créée</h3>";
+                echo "<ol>";
+                echo "<li>Allez dans votre dashboard Render.com</li>";
+                echo "<li>Vérifiez que le service MySQL <strong>schoolmanager-db</strong> existe et est actif</li>";
+                echo "<li>Si la base n'existe pas, créez-la via le dashboard ou attendez que render.yaml la crée</li>";
+                echo "</ol>";
+                echo "<h3>Option 2 : Vérifier les variables d'environnement</h3>";
+                echo "<ol>";
+                echo "<li>Dans le dashboard Render, allez dans votre service web <strong>schoolmanager</strong></li>";
+                echo "<li>Allez dans l'onglet <strong>Environment</strong></li>";
+                echo "<li>Vérifiez que les variables suivantes existent :</li>";
+                echo "<ul>";
+                echo "<li>DB_HOST (doit être une adresse, pas 'db')</li>";
+                echo "<li>DB_USER</li>";
+                echo "<li>DB_PASSWORD</li>";
+                echo "<li>DB_NAME (doit être 'gestion')</li>";
+                echo "</ul>";
+                echo "<li>Si elles n'existent pas, Render devrait les créer automatiquement via render.yaml</li>";
+                echo "</ol>";
+                echo "<h3>Option 3 : Utiliser une base de données externe</h3>";
+                echo "<p>Si vous préférez utiliser une base externe, configurez ces variables dans Render :</p>";
+                echo "<ul>";
+                echo "<li>EXTERNAL_DATABASE_HOST</li>";
+                echo "<li>EXTERNAL_DATABASE_USER</li>";
+                echo "<li>EXTERNAL_DATABASE_PASSWORD</li>";
+                echo "<li>EXTERNAL_DATABASE_NAME</li>";
+                echo "</ul>";
+                echo "<h3>État actuel détecté :</h3>";
+                echo "<ul>";
+                echo "<li>RENDER env: " . htmlspecialchars(getEnvVar('RENDER', 'non défini')) . "</li>";
+                echo "<li>IS_RENDER env: " . htmlspecialchars(getEnvVar('IS_RENDER', 'non défini')) . "</li>";
+                echo "<li>DB_HOST: " . htmlspecialchars($db_host ?: 'VIDE') . "</li>";
+                echo "<li>DB_USER: " . htmlspecialchars($db_user ?: 'VIDE') . "</li>";
+                echo "<li>DB_NAME: " . htmlspecialchars($db_name ?: 'VIDE') . "</li>";
+                echo "</ul>";
+                exit;
+            }
+            
+            // Validation spéciale pour Render : DB_HOST ne doit pas être 'db' (nom de service Docker local)
+            if ($db_host === 'db') {
+                error_log("ERREUR CRITIQUE: DB_HOST est 'db' sur Render.com - c'est une erreur de configuration");
+                echo "<h1>Erreur de configuration Render.com</h1>";
+                echo "<p><strong>Le système détecte Render.com mais DB_HOST est défini à 'db' (nom de service Docker local).</strong></p>";
+                echo "<p>Sur Render.com, DB_HOST doit être l'adresse du serveur MySQL de Render, pas 'db'.</p>";
+                echo "<h2>Solutions :</h2>";
+                echo "<ol>";
+                echo "<li><strong>Vérifiez render.yaml :</strong> Assurez-vous que la section <code>envVars</code> du service web configure DB_HOST avec <code>fromDatabase</code></li>";
+                echo "<li><strong>Vérifiez le dashboard Render :</strong> Allez dans votre service web > Environment et vérifiez que DB_HOST est bien défini (ne doit pas être 'db')</li>";
+                echo "<li><strong>Si vous utilisez une base externe :</strong> Configurez EXTERNAL_DATABASE_HOST au lieu de DB_HOST</li>";
+                echo "</ol>";
+                echo "<h3>Configuration actuelle détectée :</h3>";
+                echo "<ul>";
+                echo "<li>DB_HOST: <strong>" . htmlspecialchars($db_host) . "</strong> (incorrect pour Render)</li>";
+                echo "<li>DB_USER: " . htmlspecialchars($db_user ?: 'non défini') . "</li>";
+                echo "<li>DB_NAME: " . htmlspecialchars($db_name ?: 'non défini') . "</li>";
+                echo "<li>RENDER env: " . htmlspecialchars(getEnvVar('RENDER', 'non défini')) . "</li>";
+                echo "<li>IS_RENDER env: " . htmlspecialchars(getEnvVar('IS_RENDER', 'non défini')) . "</li>";
+                echo "</ul>";
                 exit;
             }
             

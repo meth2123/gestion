@@ -104,11 +104,20 @@ function wait_for_db($host, $username, $password, $db_name, $port = 3306, $socke
 }
 
 // Dans l'environnement de production, attendre que la base de données soit prête
-$is_docker_env = file_exists('/.dockerenv') || getenv('DB_HOST') || getenv('RENDER');
-if ($is_docker_env) {
+// Ne pas attendre si on est sur Render (les variables sont déjà configurées)
+$is_render = (
+    getenv('RENDER') == 'true' || 
+    getenv('IS_RENDER') == 'true' || 
+    strpos(getenv('RENDER_SERVICE_ID') ?: '', 'srv-') === 0 ||
+    !empty(getenv('EXTERNAL_DATABASE_HOST'))
+);
+
+$is_docker_env = file_exists('/.dockerenv') || getenv('DB_HOST');
+// Sur Render, ne pas utiliser wait_for_db car les variables sont déjà correctes
+if ($is_docker_env && !$is_render) {
     $db_ready = wait_for_db($host, $username, $password, $database_name, $db_port, $db_socket);
     if (!$db_ready && $host === 'db') {
-        // Message d'erreur plus explicite pour Docker
+        // Message d'erreur plus explicite pour Docker local
         $error_msg = "Impossible de se connecter au service de base de données 'db'.\n\n";
         $error_msg .= "Vérifications à effectuer:\n";
         $error_msg .= "1. Vérifiez que le conteneur de base de données est démarré: docker-compose ps\n";
@@ -124,6 +133,25 @@ if ($is_docker_env) {
         error_log($error_msg);
         die("<h1>Erreur de connexion à la base de données</h1><pre>" . htmlspecialchars($error_msg) . "</pre>");
     }
+} elseif ($is_render && $host === 'db') {
+    // Si on est sur Render mais que le host est 'db', c'est une erreur de configuration
+    $error_msg = "Erreur de configuration Render.com\n\n";
+    $error_msg .= "Le système détecte Render.com mais DB_HOST est défini à 'db' (nom de service Docker local).\n\n";
+    $error_msg .= "Sur Render.com, DB_HOST doit être l'adresse du serveur MySQL de Render, pas 'db'.\n\n";
+    $error_msg .= "Vérifications:\n";
+    $error_msg .= "1. Vérifiez que render.yaml configure correctement la base de données avec 'fromDatabase'\n";
+    $error_msg .= "2. Vérifiez que les variables DB_HOST, DB_USER, DB_PASSWORD, DB_NAME sont définies dans Render\n";
+    $error_msg .= "3. Ou configurez EXTERNAL_DATABASE_* si vous utilisez une base externe\n\n";
+    $error_msg .= "Configuration actuelle:\n";
+    $error_msg .= "- Host: $host (devrait être une adresse Render, pas 'db')\n";
+    $error_msg .= "- Port: $db_port\n";
+    $error_msg .= "- Database: $database_name\n";
+    $error_msg .= "- User: $username\n";
+    $error_msg .= "- RENDER env: " . (getenv('RENDER') ?: 'non défini') . "\n";
+    $error_msg .= "- IS_RENDER env: " . (getenv('IS_RENDER') ?: 'non défini') . "\n";
+    
+    error_log($error_msg);
+    die("<h1>Erreur de configuration Render.com</h1><pre>" . htmlspecialchars($error_msg) . "</pre>");
 }
 
 // Créer la connexion avec mysqli
