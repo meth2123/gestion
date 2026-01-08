@@ -272,7 +272,7 @@ class PayDunyaService {
             'host' => 'smtp.gmail.com',
             'port' => 587,
             'username' => 'methndiaye43@gmail.com',
-            'password' => 'bela qfvl albr rjtd',
+            'password' => 'ccsf pihw falx zbnu',
             'from_email' => 'methndiaye43@gmail.com',
             'from_name' => 'SchoolManager'
         ];
