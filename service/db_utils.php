@@ -6,15 +6,19 @@
 // Charger la configuration de la base de données
 require_once __DIR__ . '/db_config.php';
 
-// Connexion à la base de données avec timeout court pour éviter les attentes longues
+// Connexion à la base de données
 // Ne pas utiliser die() pour permettre aux pages de s'afficher même si la DB n'est pas accessible
 $link = null;
 
 // Vérifier si on doit vraiment se connecter (éviter les connexions inutiles)
 if (isset($db_host) && isset($db_user) && isset($db_password)) {
     try {
-        // Définir un timeout court pour éviter les attentes longues
-        ini_set('default_socket_timeout', 3); // 3 secondes max
+        // Timeout configurable via variable d'environnement (défaut: 10 secondes pour connexions lentes)
+        $connect_timeout = (int)getenv('DB_CONNECT_TIMEOUT') ?: 10;
+        $read_timeout = (int)getenv('DB_READ_TIMEOUT') ?: 30;
+        
+        // Définir le timeout socket (pour les connexions lentes comme Railway)
+        ini_set('default_socket_timeout', $connect_timeout);
         
         if (!empty($db_name)) {
             $link = @mysqli_connect($db_host, $db_user, $db_password, $db_name);
@@ -24,9 +28,9 @@ if (isset($db_host) && isset($db_user) && isset($db_password)) {
         }
         
         if ($link) {
-            // Définir un timeout pour les requêtes
-            mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, 3);
-            mysqli_options($link, MYSQLI_OPT_READ_TIMEOUT, 3);
+            // Définir les timeouts pour les requêtes (plus long pour les requêtes complexes)
+            mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, $connect_timeout);
+            mysqli_options($link, MYSQLI_OPT_READ_TIMEOUT, $read_timeout);
         } else {
             $error_msg = mysqli_connect_error();
             error_log("Erreur de connexion à la base de données: " . $error_msg);
