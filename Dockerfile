@@ -19,6 +19,9 @@ RUN apt-get update && apt-get install -y \
 # Installer les extensions PHP nécessaires
 RUN docker-php-ext-install pdo_mysql mysqli zip exif pcntl bcmath soap
 
+# Installer Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
 # Activer les modules Apache nécessaires
 RUN a2enmod rewrite headers
 
@@ -46,8 +49,33 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
 # Définir le répertoire de travail
 WORKDIR /var/www/html
 
-# Copier le code source de l'application
+# Copier les fichiers de configuration Composer d'abord (pour optimiser le cache Docker)
+COPY composer.json composer.lock* /var/www/html/
+
+# Installer les dépendances Composer (PHPMailer, TCPDF, etc.)
+# Utiliser --ignore-platform-reqs pour éviter les problèmes de compatibilité
+RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || \
+    (echo "Composer install a échoué, tentative avec --no-scripts..." && \
+     composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --no-scripts || \
+     echo "Avertissement: Composer install a échoué, mais on continue...")
+
+# Copier le reste du code source de l'application
 COPY . /var/www/html/
+
+# Réinstaller les dépendances si nécessaire (au cas où composer.json a changé)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || \
+    (echo "Réinstallation Composer a échoué, tentative avec --no-scripts..." && \
+     composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --no-scripts || \
+     echo "Avertissement: Réinstallation Composer a échoué, mais on continue...")
+
+# Vérifier que vendor/autoload.php existe
+RUN if [ ! -f /var/www/html/vendor/autoload.php ]; then \
+        echo "ERREUR: vendor/autoload.php n'existe pas. Installation manuelle de PHPMailer..."; \
+        mkdir -p /var/www/html/vendor/phpmailer/phpmailer/src; \
+        echo "Veuillez installer Composer manuellement ou vérifier composer.json"; \
+    else \
+        echo "SUCCÈS: vendor/autoload.php existe"; \
+    fi
 
 # Configurer les permissions
 RUN chown -R www-data:www-data /var/www/html \

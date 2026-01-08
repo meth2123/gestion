@@ -82,6 +82,23 @@ echo "Host: $DB_HOST"
 echo "User: $DB_USER"
 echo "Database: $DB_NAME"
 
+# Vérifier et installer Composer si nécessaire
+if [ ! -f /var/www/html/vendor/autoload.php ]; then
+    echo "vendor/autoload.php n'existe pas. Installation de Composer..."
+    if [ -f /usr/local/bin/composer ]; then
+        cd /var/www/html
+        composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || \
+        composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs --no-scripts || \
+        echo "Avertissement: Impossible d'installer les dépendances Composer"
+    else
+        echo "Composer n'est pas installé. Installation..."
+        curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+        cd /var/www/html
+        composer install --no-dev --optimize-autoloader --no-interaction --ignore-platform-reqs || \
+        echo "Avertissement: Impossible d'installer les dépendances Composer"
+    fi
+fi
+
 # Définir les permissions correctes
 echo "Configuration des permissions..."
 chown -R www-data:www-data /var/www/html

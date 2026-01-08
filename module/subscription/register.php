@@ -1,7 +1,8 @@
 <?php
-require_once '../../service/paydunya_service.php';
-require_once '../../service/paydunya_env.php';
-require_once '../../service/db_utils.php';
+// Utiliser __DIR__ pour des chemins absolus plus fiables
+require_once __DIR__ . '/../../service/paydunya_service.php';
+require_once __DIR__ . '/../../service/paydunya_env.php';
+require_once __DIR__ . '/../../service/db_utils.php';
 
 $error_message = '';
 $success_message = '';

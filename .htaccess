@@ -22,8 +22,14 @@ DirectoryIndex index.php index.html
 # Empêcher l'accès direct aux répertoires
 Options -Indexes
 
-# Protéger les fichiers sensibles
-<FilesMatch "^(\.htaccess|\.env|composer\.(json|lock)|package\.json)$">
+# Protéger les fichiers sensibles (mais permettre l'accès à composer.json pour le build)
+<FilesMatch "^(\.htaccess|\.env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Protéger les fichiers de configuration sensibles
+<FilesMatch "^(composer\.lock|package-lock\.json|\.gitignore)$">
     Order allow,deny
     Deny from all
 </FilesMatch>

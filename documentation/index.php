@@ -1,5 +1,6 @@
 <?php
-require_once '../service/db_utils.php';
+// Utiliser __DIR__ pour un chemin absolu plus fiable
+require_once __DIR__ . '/../service/db_utils.php';
 ?>
 <!DOCTYPE html>
 <html lang="fr">

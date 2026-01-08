@@ -1,5 +1,5 @@
-# Permettre l'accès aux fichiers PHP dans le répertoire documentation
-DirectoryIndex index.php index.html
+# Permettre l'accès aux fichiers PHP dans le répertoire subscription
+DirectoryIndex register.php index.php
 
 # Activer l'affichage des erreurs pour le débogage (à désactiver en production)
 # php_flag display_errors On

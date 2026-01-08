@@ -13,7 +13,7 @@ services:
       - key: IS_RENDER
         value: "true"
       - key: APP_URL
-        value: https://schoolmanager.sn
+        value: https://gestion-rlhq.onrender.com
       - key: APP_ENV
         value: production
       - key: APP_DEBUG

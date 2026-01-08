@@ -71,6 +71,30 @@ try {
     $health['status'] = 'unhealthy';
 }
 
+// Vérifier PHPMailer
+try {
+    $vendor_path = __DIR__ . '/vendor/autoload.php';
+    if (file_exists($vendor_path)) {
+        require_once $vendor_path;
+        if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            $health['services']['phpmailer'] = [
+                'status' => 'healthy',
+                'message' => 'PHPMailer is installed and available'
+            ];
+        } else {
+            throw new Exception('PHPMailer class not found');
+        }
+    } else {
+        throw new Exception('vendor/autoload.php not found');
+    }
+} catch (Exception $e) {
+    $health['services']['phpmailer'] = [
+        'status' => 'unhealthy',
+        'message' => $e->getMessage()
+    ];
+    // Ne pas marquer le système comme unhealthy pour PHPMailer seul
+}
+
 // Retourner le statut HTTP approprié
 if ($health['status'] === 'healthy') {
     http_response_code(200);
