@@ -17,9 +17,11 @@ if (!function_exists('getEnvVar')) {
 $is_render = (
     getEnvVar('RENDER') == 'true' || 
     getEnvVar('IS_RENDER') == 'true' || 
-    !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) ||
     !empty(getEnvVar('MYSQLHOST')) ||
-    !empty(getEnvVar('MYSQL_HOST'))
+    !empty(getEnvVar('MYSQL_HOST')) ||
+    !empty(getEnvVar('MYSQL_URL')) ||
+    !empty(getEnvVar('MYSQL_PUBLIC_URL')) ||
+    !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) // Garder pour compatibilité mais pas prioritaire
 );
 
 // Déterminer les paramètres de connexion
@@ -65,37 +67,77 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
     }
     
     // Si on n'a pas réussi à obtenir les infos depuis MYSQL_URL, utiliser les fallbacks
+    // PRIORITÉ: Variables Railway standard (MYSQLHOST, MYSQLUSER, etc.) puis DB_* puis EXTERNAL_DATABASE_*
     if (empty($db_host)) {
-        $db_host = getEnvVar('DB_HOST') ?: getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST') ?: getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'db';
-        $db_user = getEnvVar('DB_USER') ?: getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER') ?: getEnvVar('EXTERNAL_DATABASE_USER') ?: 'root';
-        $db_password = getEnvVar('DB_PASSWORD') ?: getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD') ?: getEnvVar('EXTERNAL_DATABASE_PASSWORD') ?: '';
-        $db_name = getEnvVar('DB_NAME') ?: getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE') ?: getEnvVar('EXTERNAL_DATABASE_NAME') ?: 'gestion';
-    }
-    
-    // Vérifier à nouveau si l'hôte est Railway interne (après les fallbacks)
-    if ($db_host === 'mysql.railway.internal' || strpos($db_host, '.railway.internal') !== false) {
-        error_log("ERREUR: L'hôte de base de données est toujours mysql.railway.internal");
-        error_log("Cet hôte ne fonctionne que si l'application est déployée sur Railway");
-        error_log("Si vous êtes sur Render.com, vous devez utiliser MYSQL_PUBLIC_URL ou configurer EXTERNAL_DATABASE_HOST");
+        // Essayer d'abord les variables MySQL standard de Railway/Render
+        $mysql_host = getEnvVar('MYSQLHOST') ?: getEnvVar('MYSQL_HOST');
+        $mysql_user = getEnvVar('MYSQLUSER') ?: getEnvVar('MYSQL_USER');
+        $mysql_password = getEnvVar('MYSQLPASSWORD') ?: getEnvVar('MYSQL_PASSWORD');
+        $mysql_database = getEnvVar('MYSQLDATABASE') ?: getEnvVar('MYSQL_DATABASE');
         
-        // Essayer une dernière fois avec MYSQL_PUBLIC_URL
-        $public_url = getEnvVar('MYSQL_PUBLIC_URL');
-        if (!empty($public_url) && preg_match('/mysql:\/\/([^:]+):([^@]+)@([^:]+):?(\d+)?\/([^?]+)/', $public_url, $public_matches)) {
-            $db_host = $public_matches[3];
-            $db_user = $public_matches[1];
-            $db_password = $public_matches[2];
-            $db_name = $public_matches[5];
-            error_log("Utilisation de l'hôte public Railway depuis MYSQL_PUBLIC_URL: $db_host");
-        } else {
-            // Si toujours Railway interne, utiliser EXTERNAL_DATABASE_HOST comme dernier recours
-            $external_host = getEnvVar('EXTERNAL_DATABASE_HOST');
-            if (!empty($external_host)) {
-                $db_host = $external_host;
-                $db_user = getEnvVar('EXTERNAL_DATABASE_USER') ?: $db_user;
-                $db_password = getEnvVar('EXTERNAL_DATABASE_PASSWORD') ?: $db_password;
-                $db_name = getEnvVar('EXTERNAL_DATABASE_NAME') ?: $db_name;
-                error_log("Utilisation de EXTERNAL_DATABASE_HOST: $db_host");
+        if (!empty($mysql_host) && !empty($mysql_user) && !empty($mysql_database)) {
+            // Vérifier si c'est un hôte Railway interne (ne fonctionne que sur Railway)
+            if ($mysql_host === 'mysql.railway.internal' || strpos($mysql_host, '.railway.internal') !== false) {
+                error_log("ATTENTION: mysql.railway.internal détecté - cet hôte ne fonctionne que sur Railway");
+                error_log("Tentative d'utilisation de MYSQL_PUBLIC_URL à la place...");
+                
+                // Essayer d'utiliser MYSQL_PUBLIC_URL qui contient l'hôte public
+                $public_url = getEnvVar('MYSQL_PUBLIC_URL');
+                if (!empty($public_url)) {
+                    if (preg_match('/mysql:\/\/([^:]+):([^@]+)@([^:]+):?(\d+)?\/([^?]+)/', $public_url, $url_matches)) {
+                        $db_host = $url_matches[3];
+                        $db_user = $url_matches[1];
+                        $db_password = $url_matches[2];
+                        $db_name = $url_matches[5];
+                        error_log("Utilisation de l'hôte public Railway depuis MYSQL_PUBLIC_URL: $db_host");
+                    }
+                }
+                
+                // Si on n'a toujours pas d'hôte public, continuer avec les autres fallbacks
+                if (empty($db_host)) {
+                    error_log("MYSQL_PUBLIC_URL non disponible, utilisation des variables DB_* ou autres fallbacks");
+                }
+            } else {
+                // Hôte public valide, l'utiliser directement
+                $db_host = $mysql_host;
+                $db_user = $mysql_user;
+                $db_password = $mysql_password;
+                $db_name = $mysql_database;
+                error_log("Utilisation des variables MySQL standard Railway: $db_host, utilisateur: $db_user, base: $db_name");
             }
+        }
+        
+        // Si toujours pas d'hôte, utiliser les variables DB_* (générées par Render via render.yaml)
+        if (empty($db_host)) {
+            $db_host = getEnvVar('DB_HOST');
+            $db_user = getEnvVar('DB_USER');
+            $db_password = getEnvVar('DB_PASSWORD');
+            $db_name = getEnvVar('DB_NAME');
+            
+            if (!empty($db_host) && !empty($db_user) && !empty($db_name)) {
+                error_log("Utilisation des variables DB_* (Render): $db_host, utilisateur: $db_user, base: $db_name");
+            }
+        }
+        
+        // Dernier recours: EXTERNAL_DATABASE_* (seulement si rien d'autre n'est disponible)
+        if (empty($db_host)) {
+            $db_host = getEnvVar('EXTERNAL_DATABASE_HOST');
+            $db_user = getEnvVar('EXTERNAL_DATABASE_USER');
+            $db_password = getEnvVar('EXTERNAL_DATABASE_PASSWORD');
+            $db_name = getEnvVar('EXTERNAL_DATABASE_NAME');
+            
+            if (!empty($db_host) && !empty($db_user) && !empty($db_name)) {
+                error_log("Utilisation des variables EXTERNAL_DATABASE_*: $db_host, utilisateur: $db_user, base: $db_name");
+            }
+        }
+        
+        // Valeurs par défaut uniquement si rien n'a été trouvé
+        if (empty($db_host)) {
+            $db_host = 'db';
+            $db_user = 'root';
+            $db_password = '';
+            $db_name = 'gestion';
+            error_log("ATTENTION: Aucune variable d'environnement de base de données trouvée, utilisation des valeurs par défaut");
         }
     }
     
@@ -152,20 +194,71 @@ function getDbConnection() {
         return null;
     }
     
-    // Créer la connexion avec gestion d'erreurs
-    $conn = @new mysqli($host, DB_USER, DB_PASSWORD, DB_NAME);
-    
-    if ($conn->connect_error) {
-        $error_msg = "Erreur de connexion à la base de données: " . $conn->connect_error;
+    // Créer la connexion avec gestion d'erreurs et exceptions
+    try {
+        // Désactiver temporairement les exceptions mysqli pour gérer les erreurs manuellement
+        $old_report_mode = mysqli_report(MYSQLI_REPORT_OFF);
+        
+        $conn = @new mysqli($host, DB_USER, DB_PASSWORD, DB_NAME);
+        
+        // Restaurer le mode de rapport précédent
+        mysqli_report($old_report_mode);
+        
+        // Vérifier les erreurs de connexion
+        if ($conn->connect_error) {
+            $error_msg = "Erreur de connexion à la base de données: " . $conn->connect_error;
+            $error_msg .= " (Host: $host, User: " . DB_USER . ", Database: " . DB_NAME . ")";
+            
+            // Message d'aide spécifique pour Railway
+            if (strpos($conn->connect_error, 'getaddrinfo') !== false && strpos($host, 'railway') !== false) {
+                $error_msg .= " | ASTUCE: Si vous êtes sur Render.com avec une base Railway, utilisez MYSQL_PUBLIC_URL au lieu de MYSQL_URL.";
+            }
+            
+            // Message pour les timeouts
+            if (strpos($conn->connect_error, 'Connection timed out') !== false || strpos($conn->connect_error, 'timed out') !== false) {
+                $error_msg .= " | ERREUR: La connexion a expiré. Vérifiez que:";
+                $error_msg .= " 1) Le serveur MySQL est accessible depuis cet environnement";
+                $error_msg .= " 2) Les variables d'environnement EXTERNAL_DATABASE_HOST sont correctement configurées";
+                $error_msg .= " 3) Le firewall/autorisations réseau permettent la connexion";
+            }
+            
+            error_log($error_msg);
+            return null;
+        }
+    } catch (mysqli_sql_exception $e) {
+        // Restaurer le mode de rapport en cas d'exception
+        if (isset($old_report_mode)) {
+            mysqli_report($old_report_mode);
+        } else {
+            mysqli_report(MYSQLI_REPORT_OFF);
+        }
+        
+        $error_msg = "Exception de connexion à la base de données: " . $e->getMessage();
         $error_msg .= " (Host: $host, User: " . DB_USER . ", Database: " . DB_NAME . ")";
         
-        // Message d'aide spécifique pour Railway
-        if (strpos($conn->connect_error, 'getaddrinfo') !== false && strpos($host, 'railway') !== false) {
+        // Messages d'aide spécifiques selon le type d'erreur
+        if (strpos($e->getMessage(), 'Connection timed out') !== false || strpos($e->getMessage(), 'timed out') !== false) {
+            $error_msg .= " | ERREUR: La connexion a expiré. Vérifiez que:";
+            $error_msg .= " 1) Le serveur MySQL est accessible depuis cet environnement";
+            $error_msg .= " 2) Les variables d'environnement EXTERNAL_DATABASE_HOST sont correctement configurées";
+            $error_msg .= " 3) Le firewall/autorisations réseau permettent la connexion";
+        } elseif (strpos($e->getMessage(), 'getaddrinfo') !== false && strpos($host, 'railway') !== false) {
             $error_msg .= " | ASTUCE: Si vous êtes sur Render.com avec une base Railway, utilisez MYSQL_PUBLIC_URL au lieu de MYSQL_URL.";
         }
         
         error_log($error_msg);
-        // Ne pas utiliser die() - retourner null pour permettre la gestion d'erreur
+        return null;
+    } catch (Exception $e) {
+        // Restaurer le mode de rapport en cas d'exception
+        if (isset($old_report_mode)) {
+            mysqli_report($old_report_mode);
+        } else {
+            mysqli_report(MYSQLI_REPORT_OFF);
+        }
+        
+        $error_msg = "Erreur inattendue lors de la connexion: " . $e->getMessage();
+        $error_msg .= " (Host: $host, User: " . DB_USER . ", Database: " . DB_NAME . ")";
+        error_log($error_msg);
         return null;
     }
     

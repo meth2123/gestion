@@ -8,6 +8,80 @@ $admin_id = $_SESSION['login_id'];
 // Initialize database connection
 $conn = getDbConnection();
 
+// Vérifier si la connexion a réussi
+if ($conn === null) {
+    // Afficher un message d'erreur en français
+    die('
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erreur de connexion à la base de données</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+            }
+            .error-container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                max-width: 600px;
+            }
+            h1 {
+                color: #d32f2f;
+                margin-top: 0;
+            }
+            .error-details {
+                background: #ffebee;
+                padding: 1rem;
+                border-left: 4px solid #d32f2f;
+                margin: 1rem 0;
+            }
+            ul {
+                margin: 0.5rem 0;
+                padding-left: 1.5rem;
+            }
+            code {
+                background: #f5f5f5;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="error-container">
+            <h1>❌ Erreur de connexion à la base de données</h1>
+            <div class="error-details">
+                <p><strong>La connexion à la base de données a échoué.</strong></p>
+                <p>Veuillez vérifier les points suivants :</p>
+                <ul>
+                    <li>Les variables d\'environnement de base de données sont correctement configurées</li>
+                    <li>Le serveur MySQL est accessible et en cours d\'exécution</li>
+                    <li>Les identifiants de connexion (hôte, utilisateur, mot de passe) sont corrects</li>
+                    <li>Le firewall/autorisations réseau permettent la connexion</li>
+                </ul>
+                <p><strong>Si vous êtes sur Render.com :</strong></p>
+                <ul>
+                    <li>Vérifiez que les variables <code>EXTERNAL_DATABASE_HOST</code>, <code>EXTERNAL_DATABASE_USER</code>, <code>EXTERNAL_DATABASE_PASSWORD</code> et <code>EXTERNAL_DATABASE_NAME</code> sont définies</li>
+                    <li>Consultez les logs de l\'application pour plus de détails</li>
+                </ul>
+            </div>
+            <p><a href="../../">← Retour à l\'accueil</a></p>
+        </div>
+    </body>
+    </html>
+    ');
+}
+
 // Get admin name
 $sql = "SELECT name FROM admin WHERE id = ?";
 $stmt = $conn->prepare($sql);
