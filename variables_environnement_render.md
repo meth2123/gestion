@@ -175,8 +175,11 @@ Ces variables permettent de configurer l'envoi d'emails via SMTP. Si elles ne so
 - ⚠️ **Recommandé sur Render.com :** Définir ces variables pour éviter d'exposer les identifiants SMTP dans le code
 - L'application essaie automatiquement plusieurs méthodes de connexion (port 587 avec STARTTLS, puis port 465 avec SSL) pour améliorer la compatibilité avec Render
 - Pour Gmail, vous devez utiliser un **mot de passe d'application** (pas votre mot de passe Gmail normal)
-- Les timeouts sont augmentés (60 secondes) pour améliorer la connexion depuis Render
-- Si vous rencontrez des erreurs de connexion SMTP sur Render, vérifiez que les ports 587 et 465 ne sont pas bloqués
+- Les timeouts sont augmentés (90 secondes) pour améliorer la connexion depuis Render
+- **⚠️ IMPORTANT :** Si vous rencontrez des erreurs "Connection timed out" sur Render.com, cela peut indiquer que Render bloque les connexions SMTP sortantes. Dans ce cas :
+  - Vérifiez que les ports 587 et 465 ne sont pas bloqués dans les paramètres réseau de Render
+  - **Recommandation :** Utilisez un service d'email tiers comme SendGrid ou Mailgun qui sont mieux optimisés pour les environnements cloud
+  - L'application inclut maintenant des retries avec délais progressifs et des messages d'erreur plus explicites
 
 **Configuration recommandée pour Gmail sur Render :**
 ```

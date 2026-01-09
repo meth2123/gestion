@@ -202,11 +202,21 @@ class SecureSubscriptionChecker {
             
             foreach ($attempts as $index => $attempt) {
                 try {
+                    // Ajouter un délai progressif entre les tentatives (exponential backoff)
+                    if ($index > 0) {
+                        $delay = min(2 * $index, 5); // Délai de 2, 4, 5, 5 secondes max
+                        error_log("Attente de {$delay} secondes avant la tentative " . ($index + 1));
+                        sleep($delay);
+                    }
+                    
                     error_log("Tentative " . ($index + 1) . " : " . $attempt['description']);
                     $mail = $this->createPHPMailerInstance($smtp_config, $email, $attempt['password'], $attempt['use_ssl']);
                     $mail->Subject = 'Informations de votre abonnement SchoolManager';
                     $mail->Body = $email_body;
                     $mail->AltBody = $email_alt_body;
+                    
+                    // Tester la connexion avant d'envoyer (optionnel mais peut aider)
+                    // Note: PHPMailer teste automatiquement la connexion lors de send()
                     
                     $mail->send();
                     
@@ -228,7 +238,8 @@ class SecureSubscriptionChecker {
                     if (strpos($error_message, 'Could not connect') !== false || 
                         strpos($error_message, 'Failed to connect') !== false ||
                         strpos($error_message, 'Connection timed out') !== false ||
-                        strpos($error_message, 'Connection refused') !== false) {
+                        strpos($error_message, 'Connection refused') !== false ||
+                        strpos($error_message, 'timed out') !== false) {
                         // Continuer avec la tentative suivante
                         continue;
                     }
@@ -250,15 +261,28 @@ class SecureSubscriptionChecker {
             error_log("Dernière erreur : " . $last_error);
             error_log("Dernier SMTP ErrorInfo : " . $last_error_info);
             
+            // Détecter si on est sur Render.com
+            $is_render = getenv('RENDER') === 'true' || getenv('IS_RENDER') === 'true' || 
+                         strpos($_SERVER['HTTP_HOST'] ?? '', 'render.com') !== false ||
+                         strpos($_SERVER['HTTP_HOST'] ?? '', 'onrender.com') !== false;
+            
             // Message d'erreur plus explicite selon le type d'erreur
             $user_message = 'Erreur lors de l\'envoi de l\'email. ';
             if (strpos($last_error, 'Could not connect') !== false || 
-                strpos($last_error, 'Failed to connect') !== false) {
-                $user_message .= 'Impossible de se connecter au serveur SMTP. Cela peut être dû à des restrictions réseau sur le serveur. Veuillez réessayer plus tard ou contacter l\'administrateur.';
+                strpos($last_error, 'Failed to connect') !== false ||
+                strpos($last_error, 'Connection timed out') !== false ||
+                strpos($last_error, 'timed out') !== false) {
+                $user_message .= 'Impossible de se connecter au serveur SMTP. ';
+                if ($is_render) {
+                    $user_message .= 'Sur Render.com, les connexions SMTP peuvent être bloquées. ';
+                    $user_message .= 'Veuillez vérifier que les ports SMTP (587, 465) ne sont pas bloqués dans les paramètres réseau de Render, ';
+                    $user_message .= 'ou envisagez d\'utiliser un service d\'email tiers comme SendGrid ou Mailgun. ';
+                }
+                $user_message .= 'Veuillez réessayer plus tard ou contacter l\'administrateur.';
             } elseif (strpos($last_error, 'Could not authenticate') !== false) {
                 $user_message .= 'Erreur d\'authentification SMTP. Veuillez vérifier que le mot de passe d\'application Gmail est correct et valide.';
             } else {
-                $user_message .= 'Erreur SMTP : ' . $last_error;
+                $user_message .= 'Erreur SMTP : ' . htmlspecialchars(substr($last_error, 0, 200));
             }
             
             return [
@@ -272,14 +296,26 @@ class SecureSubscriptionChecker {
             error_log("Erreur PHPMailer générale : " . $error_message);
             error_log("SMTP ErrorInfo : " . (isset($mail) ? $mail->ErrorInfo : 'N/A'));
             
+            // Détecter si on est sur Render.com
+            $is_render = getenv('RENDER') === 'true' || getenv('IS_RENDER') === 'true' || 
+                         strpos($_SERVER['HTTP_HOST'] ?? '', 'render.com') !== false ||
+                         strpos($_SERVER['HTTP_HOST'] ?? '', 'onrender.com') !== false;
+            
             // Message d'erreur plus explicite pour l'utilisateur
             $user_message = 'Erreur lors de l\'envoi de l\'email. ';
             if (strpos($error_message, 'Could not connect') !== false || 
                 strpos($error_message, 'Failed to connect') !== false ||
-                strpos($error_message, 'Connection timed out') !== false) {
-                $user_message .= 'Impossible de se connecter au serveur SMTP. Cela peut être dû à des restrictions réseau. Veuillez réessayer plus tard.';
+                strpos($error_message, 'Connection timed out') !== false ||
+                strpos($error_message, 'timed out') !== false) {
+                $user_message .= 'Impossible de se connecter au serveur SMTP. ';
+                if ($is_render) {
+                    $user_message .= 'Sur Render.com, les connexions SMTP peuvent être bloquées. ';
+                    $user_message .= 'Veuillez vérifier que les ports SMTP (587, 465) ne sont pas bloqués dans les paramètres réseau de Render, ';
+                    $user_message .= 'ou envisagez d\'utiliser un service d\'email tiers comme SendGrid ou Mailgun. ';
+                }
+                $user_message .= 'Veuillez réessayer plus tard.';
             } else {
-                $user_message .= $error_message;
+                $user_message .= htmlspecialchars(substr($error_message, 0, 200));
             }
             
             return [
@@ -319,12 +355,18 @@ class SecureSubscriptionChecker {
                 'verify_peer' => false,
                 'verify_peer_name' => false,
                 'allow_self_signed' => true,
-                'crypto_method' => STREAM_CRYPTO_METHOD_TLS_CLIENT
+                'crypto_method' => STREAM_CRYPTO_METHOD_TLS_CLIENT,
+                'peer_name' => $smtp_config['host']
             ]
         ];
         
         // Timeouts augmentés pour les connexions depuis Render vers Gmail
-        $mail->Timeout = 60; // Timeout général de 60 secondes (augmenté pour Render)
+        // Timeout général augmenté à 90 secondes pour Render.com (augmenté de 60 à 90)
+        $mail->Timeout = 90;
+        // Timeout de connexion spécifique (si supporté par PHPMailer)
+        if (property_exists($mail, 'SMTPConnectTimeout')) {
+            $mail->SMTPConnectTimeout = 30;
+        }
         $mail->SMTPKeepAlive = false; // Ne pas garder la connexion ouverte
         
         // Options de connexion améliorées pour Render
