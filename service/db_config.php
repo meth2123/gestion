@@ -22,7 +22,6 @@ $is_render = (
     getEnvVar('RENDER') == 'true' || 
     getEnvVar('IS_RENDER') == 'true' || 
     strpos(getEnvVar('RENDER_SERVICE_ID', ''), 'srv-') === 0 ||
-    !empty(getEnvVar('EXTERNAL_DATABASE_HOST')) || // Si EXTERNAL_DATABASE_HOST est défini
     getEnvVar('RENDER_EXTERNAL_HOST') !== null || // Variable Render spécifique
     !empty(getEnvVar('MYSQLHOST')) || // Variable MySQL standard de Render
     !empty(getEnvVar('MYSQL_HOST')) || // Alternative
@@ -45,7 +44,6 @@ if (getEnvVar('APP_DEBUG') === 'true' || getEnvVar('DEBUG') === 'true') {
     error_log("MYSQL_DATABASE env: " . getEnvVar('MYSQL_DATABASE', 'non défini'));
     error_log("MYSQL_URL env: " . (getEnvVar('MYSQL_URL', 'non défini') ? substr(getEnvVar('MYSQL_URL', ''), 0, 50) . '...' : 'non défini'));
     error_log("MYSQL_PUBLIC_URL env: " . (getEnvVar('MYSQL_PUBLIC_URL', 'non défini') ? substr(getEnvVar('MYSQL_PUBLIC_URL', ''), 0, 50) . '...' : 'non défini'));
-    error_log("EXTERNAL_DATABASE_HOST: " . (getEnvVar('EXTERNAL_DATABASE_HOST') ?: 'non défini'));
     error_log("/.dockerenv existe: " . (file_exists('/.dockerenv') ? 'oui' : 'non'));
 }
 
@@ -55,9 +53,8 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
     // Définir des valeurs par défaut pour Render.com si détecté (PRIORITÉ)
     if ($is_render) {
         // Sur Render.com, on peut utiliser plusieurs sources de configuration :
-        // 1. Variables MySQL standard de Render (MYSQLHOST, MYSQLUSER, etc.) - PRIORITÉ
-        // 2. EXTERNAL_DATABASE_* (base externe)
-        // 3. DB_* (base Render générée automatiquement via render.yaml)
+        // 1. Variables MySQL standard de Railway (MYSQL_URL, MYSQLHOST, MYSQLUSER, etc.) - PRIORITÉ
+        // 2. DB_* (base Render générée automatiquement via render.yaml)
         
         // PRIORITÉ 1: Vérifier les variables MySQL standard (Render, Railway, etc.)
         // Railway fournit MYSQL_URL qui contient l'URL complète de connexion (utilisable depuis l'extérieur)
@@ -200,67 +197,7 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
         if (!empty($db_host) && !empty($db_user) && !empty($db_name)) {
             $db_socket = '';
         }
-        // PRIORITÉ 2: Vérifier si EXTERNAL_DATABASE_HOST est défini (base externe)
-        elseif (!empty(getEnvVar('EXTERNAL_DATABASE_HOST'))) {
-            $external_host = getEnvVar('EXTERNAL_DATABASE_HOST');
-            // Validation : EXTERNAL_DATABASE_HOST ne doit pas être 'db' (nom de service Docker local)
-            if ($external_host === 'db' || $external_host === 'localhost') {
-                error_log("ERREUR CRITIQUE: EXTERNAL_DATABASE_HOST est défini à '$external_host' - c'est incorrect pour Render.com");
-                echo "<h1>Erreur de configuration Render.com</h1>";
-                echo "<p><strong>EXTERNAL_DATABASE_HOST est défini à 'db' ou 'localhost', ce qui est incorrect.</strong></p>";
-                echo "<p>'db' est le nom d'un service Docker local, pas une adresse de base de données sur Render.</p>";
-                echo "<h2>Solutions :</h2>";
-                echo "<h3>Option 1 : Utiliser la base de données Render (recommandé)</h3>";
-                echo "<p>Si vous utilisez la base de données MySQL créée via render.yaml :</p>";
-                echo "<ol>";
-                echo "<li>Supprimez toutes les variables EXTERNAL_DATABASE_* du dashboard Render</li>";
-                echo "<li>Laissez Render générer automatiquement les variables DB_* via render.yaml</li>";
-                echo "<li>Les variables DB_HOST, DB_USER, DB_PASSWORD, DB_NAME seront créées automatiquement</li>";
-                echo "</ol>";
-                echo "<h3>Option 2 : Utiliser une vraie base de données externe</h3>";
-                echo "<p>Si vous utilisez une base externe (PlanetScale, Railway, etc.) :</p>";
-                echo "<ol>";
-                echo "<li>Remplacez EXTERNAL_DATABASE_HOST par l'adresse réelle de votre base (ex: mysql.example.com)</li>";
-                echo "<li>Ne mettez pas 'db' ou 'localhost'</li>";
-                echo "</ol>";
-                echo "<h3>Configuration actuelle détectée :</h3>";
-                echo "<ul>";
-                echo "<li>EXTERNAL_DATABASE_HOST: <strong>" . htmlspecialchars($external_host) . "</strong> (incorrect)</li>";
-                echo "<li>EXTERNAL_DATABASE_USER: " . htmlspecialchars(getEnvVar('EXTERNAL_DATABASE_USER', 'non défini')) . "</li>";
-                echo "<li>EXTERNAL_DATABASE_NAME: " . htmlspecialchars(getEnvVar('EXTERNAL_DATABASE_NAME', 'non défini')) . "</li>";
-                echo "</ul>";
-                exit;
-            }
-            
-            // Utiliser les paramètres de connexion externes pour Render.com
-            $db_host = $external_host;
-            $db_user = getEnvVar('EXTERNAL_DATABASE_USER');
-            $db_password = getEnvVar('EXTERNAL_DATABASE_PASSWORD');
-            $db_name = getEnvVar('EXTERNAL_DATABASE_NAME');
-            $db_port = getEnvVar('EXTERNAL_DATABASE_PORT', '3306');
-            $db_socket = '';
-            
-            // Vérifier que les variables d'environnement sont définies
-            if (empty($db_host) || empty($db_user) || empty($db_name)) {
-                error_log("ERREUR CRITIQUE: Variables d'environnement manquantes pour la base de données externe sur Render.com");
-                error_log("EXTERNAL_DATABASE_HOST: " . ($db_host ?: 'VIDE'));
-                error_log("EXTERNAL_DATABASE_USER: " . ($db_user ?: 'VIDE'));
-                error_log("EXTERNAL_DATABASE_NAME: " . ($db_name ?: 'VIDE'));
-                echo "<h1>Erreur de configuration</h1>";
-                echo "<p>L'application n'est pas correctement configurée pour Render.com.</p>";
-                echo "<p>Si vous utilisez une base de données externe, veuillez configurer les variables suivantes :</p>";
-                echo "<ul>";
-                echo "<li>EXTERNAL_DATABASE_HOST (doit être une adresse réelle, pas 'db')</li>";
-                echo "<li>EXTERNAL_DATABASE_USER</li>";
-                echo "<li>EXTERNAL_DATABASE_PASSWORD</li>";
-                echo "<li>EXTERNAL_DATABASE_NAME</li>";
-                echo "</ul>";
-                exit;
-            }
-            
-            error_log("Environnement Render.com détecté. Utilisation de la base de données EXTERNE: $db_host:$db_port, utilisateur: $db_user, base: $db_name");
-        }
-        // PRIORITÉ 3: Utiliser les variables DB_* générées automatiquement par Render (via render.yaml)
+        // PRIORITÉ 2: Utiliser les variables DB_* générées automatiquement par Render (via render.yaml)
         else {
             $db_host = getEnvVar('DB_HOST');
             $db_user = getEnvVar('DB_USER');
@@ -298,13 +235,11 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
                 echo "</ul>";
                 echo "<li>Si elles n'existent pas, Render devrait les créer automatiquement via render.yaml</li>";
                 echo "</ol>";
-                echo "<h3>Option 3 : Utiliser une base de données externe</h3>";
-                echo "<p>Si vous préférez utiliser une base externe, configurez ces variables dans Render :</p>";
+                echo "<h3>Option 3 : Utiliser une base de données Railway</h3>";
+                echo "<p>Si vous utilisez Railway, configurez ces variables dans Render :</p>";
                 echo "<ul>";
-                echo "<li>EXTERNAL_DATABASE_HOST</li>";
-                echo "<li>EXTERNAL_DATABASE_USER</li>";
-                echo "<li>EXTERNAL_DATABASE_PASSWORD</li>";
-                echo "<li>EXTERNAL_DATABASE_NAME</li>";
+                echo "<li>MYSQL_URL ou MYSQL_PUBLIC_URL (URL complète de connexion Railway)</li>";
+                echo "<li>Ou MYSQLHOST, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE (variables individuelles Railway)</li>";
                 echo "</ul>";
                 echo "<h3>État actuel détecté :</h3>";
                 echo "<ul>";
@@ -327,7 +262,7 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
                 echo "<ol>";
                 echo "<li><strong>Vérifiez render.yaml :</strong> Assurez-vous que la section <code>envVars</code> du service web configure DB_HOST avec <code>fromDatabase</code></li>";
                 echo "<li><strong>Vérifiez le dashboard Render :</strong> Allez dans votre service web > Environment et vérifiez que DB_HOST est bien défini (ne doit pas être 'db')</li>";
-                echo "<li><strong>Si vous utilisez une base externe :</strong> Configurez EXTERNAL_DATABASE_HOST au lieu de DB_HOST</li>";
+                echo "<li><strong>Si vous utilisez Railway :</strong> Configurez MYSQL_URL ou MYSQL_PUBLIC_URL</li>";
                 echo "</ol>";
                 echo "<h3>Configuration actuelle détectée :</h3>";
                 echo "<ul>";

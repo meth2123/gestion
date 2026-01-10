@@ -1,15 +1,15 @@
 <?php
 include_once('main.php');
-require_once('../../db/config.php');
 
 // Get admin ID for filtering
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
 
 // Vérifier si la connexion a réussi
-if ($conn === null) {
+if ($conn === null || !$conn) {
     // Afficher un message d'erreur en français
     die('
     <!DOCTYPE html>
@@ -69,9 +69,10 @@ if ($conn === null) {
                     <li>Les identifiants de connexion (hôte, utilisateur, mot de passe) sont corrects</li>
                     <li>Le firewall/autorisations réseau permettent la connexion</li>
                 </ul>
-                <p><strong>Si vous êtes sur Render.com :</strong></p>
+                <p><strong>Variables d\'environnement requises (Railway) :</strong></p>
                 <ul>
-                    <li>Vérifiez que les variables <code>EXTERNAL_DATABASE_HOST</code>, <code>EXTERNAL_DATABASE_USER</code>, <code>EXTERNAL_DATABASE_PASSWORD</code> et <code>EXTERNAL_DATABASE_NAME</code> sont définies</li>
+                    <li>Vérifiez que les variables Railway sont définies : <code>MYSQL_URL</code> ou <code>MYSQL_PUBLIC_URL</code> (URL complète)</li>
+                    <li>Ou utilisez les variables individuelles : <code>MYSQLHOST</code>, <code>MYSQLUSER</code>, <code>MYSQLPASSWORD</code>, <code>MYSQLDATABASE</code></li>
                     <li>Consultez les logs de l\'application pour plus de détails</li>
                 </ul>
             </div>
@@ -96,9 +97,8 @@ if(!isset($login_session)){
     exit;
 }
 
-// Close database connection
+// Close database statement
 $stmt->close();
-$conn->close();
 
 // Contenu de la page
 $content = '

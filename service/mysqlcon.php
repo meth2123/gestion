@@ -19,7 +19,7 @@ if ($host === 'root') {
     error_log("ERREUR CRITIQUE: Le nom d'hôte de la base de données est 'root' au lieu d'un nom d'hôte valide.");
     error_log("db_host depuis db_config.php: " . (isset($db_host) ? $db_host : 'NON DÉFINI'));
     error_log("Vérifiez que les variables d'environnement sont correctement configurées sur Render.com");
-    die("Erreur de configuration de la base de données : le nom d'hôte ne peut pas être 'root'. Veuillez vérifier les variables d'environnement EXTERNAL_DATABASE_HOST sur Render.com.");
+    die("Erreur de configuration de la base de données : le nom d'hôte ne peut pas être 'root'. Veuillez vérifier les variables d'environnement Railway (MYSQL_URL, MYSQLHOST, etc.) sur Render.");
 }
 
 // Définir le port et le socket avec des valeurs par défaut
@@ -109,7 +109,6 @@ $is_render = (
     getenv('RENDER') == 'true' || 
     getenv('IS_RENDER') == 'true' || 
     strpos(getenv('RENDER_SERVICE_ID') ?: '', 'srv-') === 0 ||
-    !empty(getenv('EXTERNAL_DATABASE_HOST'))
 );
 
 $is_docker_env = file_exists('/.dockerenv') || getenv('DB_HOST');
@@ -141,7 +140,7 @@ if ($is_docker_env && !$is_render) {
     $error_msg .= "Vérifications:\n";
     $error_msg .= "1. Vérifiez que render.yaml configure correctement la base de données avec 'fromDatabase'\n";
     $error_msg .= "2. Vérifiez que les variables DB_HOST, DB_USER, DB_PASSWORD, DB_NAME sont définies dans Render\n";
-    $error_msg .= "3. Ou configurez EXTERNAL_DATABASE_* si vous utilisez une base externe\n\n";
+        $error_msg .= "3. Ou configurez les variables Railway (MYSQL_URL, MYSQLHOST, etc.) si vous utilisez Railway\n\n";
     $error_msg .= "Configuration actuelle:\n";
     $error_msg .= "- Host: $host (devrait être une adresse Render, pas 'db')\n";
     $error_msg .= "- Port: $db_port\n";
