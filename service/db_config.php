@@ -57,9 +57,9 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
         // 2. DB_* (base Render générée automatiquement via render.yaml)
         
         // PRIORITÉ 1: Vérifier les variables MySQL standard (Render, Railway, etc.)
-        // Railway fournit MYSQL_URL qui contient l'URL complète de connexion (utilisable depuis l'extérieur)
-        // Vérifier d'abord MYSQL_URL (Railway fournit souvent cette variable avec l'hôte public)
-        $mysql_url = getEnvVar('MYSQL_URL') ?: getEnvVar('MYSQLURL');
+        // Railway fournit MYSQL_PUBLIC_URL pour les connexions externes (priorité) et MYSQL_URL
+        // Vérifier d'abord MYSQL_PUBLIC_URL (spécifiquement pour les connexions depuis l'extérieur)
+        $mysql_url = getEnvVar('MYSQL_PUBLIC_URL') ?: getEnvVar('MYSQL_URL') ?: getEnvVar('MYSQLURL');
         $db_host = null;
         $db_user = null;
         $db_password = null;

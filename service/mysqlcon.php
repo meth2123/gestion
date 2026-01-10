@@ -109,6 +109,8 @@ $is_render = (
     getenv('RENDER') == 'true' || 
     getenv('IS_RENDER') == 'true' || 
     strpos(getenv('RENDER_SERVICE_ID') ?: '', 'srv-') === 0 ||
+    !empty(getenv('MYSQL_URL')) ||
+    !empty(getenv('MYSQL_PUBLIC_URL'))
 );
 
 $is_docker_env = file_exists('/.dockerenv') || getenv('DB_HOST');

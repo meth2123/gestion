@@ -26,8 +26,8 @@ $is_render = (
 // Déterminer les paramètres de connexion
 if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
     // Environnement de production (Render, Railway, Docker)
-    // PRIORITÉ 1: Vérifier MYSQL_URL (Railway fournit souvent cette variable)
-    $mysql_url = getEnvVar('MYSQL_URL') ?: getEnvVar('MYSQLURL');
+    // PRIORITÉ 1: Vérifier MYSQL_PUBLIC_URL (pour connexions externes) puis MYSQL_URL
+    $mysql_url = getEnvVar('MYSQL_PUBLIC_URL') ?: getEnvVar('MYSQL_URL') ?: getEnvVar('MYSQLURL');
     $db_host = null;
     $db_user = null;
     $db_password = null;
