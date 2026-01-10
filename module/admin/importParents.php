@@ -12,7 +12,11 @@ if (!isset($_SESSION['login_id'])) {
 
 $check = $_SESSION['login_id'];
 $admin_name = $login_session;
-$conn = getDbConnection();
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 // Fonction pour générer l'ID parent
 function generateParentId($conn, $mothername) {

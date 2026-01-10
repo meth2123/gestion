@@ -1,12 +1,15 @@
 <?php
 include_once('main.php');
-require_once('../../db/config.php');
 
 // Get admin ID for filtering
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 if(isset($_POST['submit'])){
     try {
@@ -59,7 +62,7 @@ if(isset($_POST['submit'])){
 if (isset($stmt)) $stmt->close();
 if (isset($stmt_user)) $stmt_user->close();
 if (isset($check_stmt)) $check_stmt->close();
-if (isset($conn)) $conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 
 // Redirect back to deleteParent.php
 header("Location: deleteParent.php");

@@ -1,12 +1,15 @@
 <?php
 include_once('main.php');
-require_once('../../db/config.php');
 
 // Get admin ID for filtering
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 $searchKey = $_GET['key'];
 

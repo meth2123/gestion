@@ -1,12 +1,17 @@
 <?php
 include_once('main.php');
-require_once('../../db/config.php');
 
 // Get admin ID for filtering
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+
+// Vérifier si la connexion a réussi
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
 
 // Get admin name
 $sql = "SELECT name FROM admin WHERE id = ?";
@@ -177,5 +182,5 @@ if(!empty($_POST['submit'])){
 if (isset($stmt)) $stmt->close();
 if (isset($stmt_user)) $stmt_user->close();
 if (isset($check_stmt)) $check_stmt->close();
-if (isset($conn)) $conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 ?>

@@ -25,6 +25,9 @@ $is_render = (
     getEnvVar('RENDER_EXTERNAL_HOST') !== null || // Variable Render spécifique
     !empty(getEnvVar('MYSQLHOST')) || // Variable MySQL standard de Render
     !empty(getEnvVar('MYSQL_HOST')) || // Alternative
+    !empty(getEnvVar('MYSQL_URL')) || // URL MySQL (Railway)
+    !empty(getEnvVar('MYSQL_PUBLIC_URL')) || // URL MySQL publique (Railway)
+    !empty(getEnvVar('MYSQLURL')) || // Alternative
     (file_exists('/.dockerenv') && getEnvVar('DB_HOST') && getEnvVar('DB_HOST') !== 'db') // Docker mais pas le service local 'db'
 );
 
@@ -279,11 +282,33 @@ if ($is_render || file_exists('/.dockerenv') || getenv('DB_HOST')) {
         }
         
         // Validation supplémentaire : s'assurer que $db_host n'est pas vide ou égal à "root"
-        if ($db_host === 'root' || empty(trim($db_host))) {
-            error_log("ERREUR CRITIQUE: DB_HOST a une valeur invalide: '$db_host'");
-            echo "<h1>Erreur de configuration</h1>";
-            echo "<p>La variable DB_HOST a une valeur invalide. Elle ne peut pas être 'root' ou vide.</p>";
-            echo "<p>Veuillez vérifier la configuration dans le dashboard Render.com ou dans render.yaml.</p>";
+        if (empty($db_host) || $db_host === 'root' || empty(trim($db_host))) {
+            error_log("ERREUR CRITIQUE: DB_HOST a une valeur invalide ou est vide: '$db_host'");
+            error_log("Variables détectées:");
+            error_log("  MYSQL_URL: " . (getEnvVar('MYSQL_URL') ? 'défini' : 'non défini'));
+            error_log("  MYSQL_PUBLIC_URL: " . (getEnvVar('MYSQL_PUBLIC_URL') ? 'défini' : 'non défini'));
+            error_log("  MYSQLHOST: " . (getEnvVar('MYSQLHOST') ?: 'non défini'));
+            error_log("  MYSQL_HOST: " . (getEnvVar('MYSQL_HOST') ?: 'non défini'));
+            error_log("  MYSQLUSER: " . (getEnvVar('MYSQLUSER') ?: 'non défini'));
+            error_log("  MYSQL_DATABASE: " . (getEnvVar('MYSQL_DATABASE') ?: 'non défini'));
+            echo "<h1>Erreur de configuration de la base de données</h1>";
+            echo "<p><strong>Les variables d'environnement Railway ne sont pas correctement configurées.</strong></p>";
+            echo "<p>L'environnement Railway a été détecté mais les informations de connexion n'ont pas pu être extraites.</p>";
+            echo "<h2>Variables requises sur Render :</h2>";
+            echo "<ul>";
+            echo "<li><strong>MYSQL_PUBLIC_URL</strong> ou <strong>MYSQL_URL</strong> (URL complète de connexion Railway)</li>";
+            echo "<li>Ou les variables individuelles : <strong>MYSQLHOST</strong>, <strong>MYSQLUSER</strong>, <strong>MYSQLPASSWORD</strong>, <strong>MYSQLDATABASE</strong></li>";
+            echo "</ul>";
+            echo "<h3>Variables actuellement détectées :</h3>";
+            echo "<ul>";
+            echo "<li>MYSQL_URL: " . htmlspecialchars(getEnvVar('MYSQL_URL', 'non défini')) . "</li>";
+            echo "<li>MYSQL_PUBLIC_URL: " . htmlspecialchars(getEnvVar('MYSQL_PUBLIC_URL', 'non défini')) . "</li>";
+            echo "<li>MYSQLHOST: " . htmlspecialchars(getEnvVar('MYSQLHOST', 'non défini')) . "</li>";
+            echo "<li>MYSQL_HOST: " . htmlspecialchars(getEnvVar('MYSQL_HOST', 'non défini')) . "</li>";
+            echo "<li>MYSQLUSER: " . htmlspecialchars(getEnvVar('MYSQLUSER', 'non défini')) . "</li>";
+            echo "<li>MYSQL_DATABASE: " . htmlspecialchars(getEnvVar('MYSQL_DATABASE', 'non défini')) . "</li>";
+            echo "</ul>";
+            echo "<p>Veuillez vérifier que ces variables sont correctement définies dans le dashboard Render.</p>";
             exit;
         }
     } else {
