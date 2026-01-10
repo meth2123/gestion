@@ -7,11 +7,16 @@ if (!isset($_SESSION['usertype']) || $_SESSION['usertype'] !== 'director') {
 }
 
 // --- Inclusion des fichiers nécessaires ---
-require_once(__DIR__ . '/../../db/config.php');
+require_once dirname(dirname(dirname(__FILE__))) . '/config.php';
+require_once MYSQLCON_PATH;
 require_once('../../service/db_utils.php');
 
 // --- Récupérer l'admin_id lié au directeur ---
 $director_id = $_SESSION['userid'];
+global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 $sql = "SELECT created_by FROM director WHERE userid = ?";
 $stmt = $link->prepare($sql);
 $stmt->bind_param("s", $director_id);
@@ -149,7 +154,7 @@ $paymentAmounts = getClassPaymentAmounts();
 $paymentHistory = getPaymentHistory($_GET);
 
 // --- Paiements du mois en cours ---
-$conn = getDbConnection();
+$conn = $link;
 $sql = "SELECT p.*, s.name as student_name 
         FROM payment p 
         INNER JOIN students s ON p.studentid = s.id 
@@ -315,11 +320,12 @@ ob_start();
                         <?php if (!empty($paymentHistory)): ?>
                             <?php foreach ($paymentHistory as $payment): ?>
                                 <?php
-                                $badge = match ($payment['payment_source']) {
-                                    'Administration' => 'bg-primary',
-                                    'Parent' => 'bg-success',
-                                    default => 'bg-secondary',
-                                };
+                                $badge = 'bg-secondary';
+                                if ($payment['payment_source'] === 'Administration') {
+                                    $badge = 'bg-primary';
+                                } elseif ($payment['payment_source'] === 'Parent') {
+                                    $badge = 'bg-success';
+                                }
                                 ?>
                                 <tr>
                                     <td><?= htmlspecialchars($payment['student_name']) ?></td>
@@ -349,9 +355,8 @@ ob_start();
 </div>
 
 <?php
-// Fermer les connexions
+// Fermer le statement (ne pas fermer $conn car il est partagé)
 $stmt->close();
-$conn->close();
 
 // Intégrer dans le layout
 $content = ob_get_clean();

@@ -6,7 +6,10 @@ require_once('../../service/db_utils.php');
 
 // Récupérer l'admin_id lié au directeur
 $director_id = $_SESSION['userid'] ?? $_SESSION['login_id'] ?? null;
-$link = $link ?? $conn ?? getDbConnection();
+global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 $sql = "SELECT created_by FROM director WHERE userid = ?";
 $stmt = $link->prepare($sql);
 $stmt->bind_param("s", $director_id);
