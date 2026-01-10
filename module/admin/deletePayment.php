@@ -1,13 +1,16 @@
 <?php
 include_once('main.php');
 include_once('includes/auth_check.php');
-require_once('../../db/config.php');
 
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 // Get current month's payments for this admin
 $sql = "SELECT p.*, s.name as student_name 
@@ -25,7 +28,7 @@ $result = $stmt->get_result();
 
 // Close database connection
 $stmt->close();
-$conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 ?>
 <!DOCTYPE html>
 <html lang="fr">

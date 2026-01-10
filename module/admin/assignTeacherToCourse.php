@@ -22,11 +22,11 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 // Récupérer l'ID de l'administrateur
 $admin_id = $_SESSION['login_id'];
 
-// Connexion à la base de données
-require_once('../../db/config.php');
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
 }
 
 $success_message = '';

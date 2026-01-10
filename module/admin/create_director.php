@@ -41,8 +41,12 @@ if (!$created_by || $created_by === '0') {
 }
 $admin_id = $created_by; // chaque admin ne crée que pour lui-même
 
-// Obtenir la connexion à la base de données
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par mysqlcon.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 // Vérifier si le directeur existe déjà pour cet admin
 $check_director = $conn->prepare("SELECT * FROM director WHERE created_by = ?");

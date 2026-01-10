@@ -1,13 +1,16 @@
 <?php
 include_once('main.php');
 include_once('includes/auth_check.php');
-require_once('../../db/config.php');
 
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 // Get list of students created by this admin
 $sql = "SELECT id, name FROM students WHERE created_by = ? ORDER BY name";
@@ -203,5 +206,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
 <?php
 // Close database connection
 if (isset($stmt)) $stmt->close();
-if (isset($conn)) $conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 ?>

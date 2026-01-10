@@ -1,13 +1,16 @@
 <?php
 include_once('main.php');
 include_once('includes/auth_check.php');
-require_once('../../db/config.php');
 
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 if (isset($_POST['id'])) {
     $payment_id = intval($_POST['id']);
@@ -53,5 +56,5 @@ if (isset($_POST['id'])) {
 // Close database connection
 if (isset($check_stmt)) $check_stmt->close();
 if (isset($delete_stmt)) $delete_stmt->close();
-if (isset($conn)) $conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 ?>

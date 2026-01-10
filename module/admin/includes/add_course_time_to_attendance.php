@@ -1,12 +1,18 @@
 <?php
-require_once(__DIR__ . '/../../../db/config.php');
-
-try {
+// Utiliser la connexion $link existante si disponible, sinon créer une connexion
+global $link;
+if (isset($link) && $link !== null) {
+    $conn = $link;
+} else {
+    require_once(__DIR__ . '/../../../db/config.php');
     $conn = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
     
     if ($conn->connect_error) {
         throw new Exception("Connection failed: " . $conn->connect_error);
     }
+}
+
+try {
 
     // Ajouter la colonne course_time si elle n'existe pas
     $check_column = "SHOW COLUMNS FROM attendance LIKE 'course_time'";
@@ -43,7 +49,10 @@ try {
         echo "La colonne status existe déjà.\n";
     }
 
-    $conn->close();
+    // Ne fermer que si on a créé la connexion nous-mêmes
+    if (!isset($link) || $link === null) {
+        $conn->close();
+    }
     
 } catch (Exception $e) {
     echo "Erreur: " . $e->getMessage() . "\n";

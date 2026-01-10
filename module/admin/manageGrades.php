@@ -6,6 +6,12 @@ include_once('../../service/db_utils.php');
 // La vérification de la session admin est déjà faite dans auth_check.php
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 
+// S'assurer que $link est disponible
+global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
+
 // Récupération des classes de l'admin
 $classes = db_fetch_all(
     "SELECT * FROM class WHERE created_by = ? ORDER BY name",

@@ -5,11 +5,11 @@ include_once('../../service/db_utils.php');
 
 // La vérification de la session admin est déjà faite dans auth_check.php
 
-// Connexion à la base de données
-require_once('../../db/config.php');
-$conn = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
 }
 
 // L'ID de l'administrateur et le login_session sont déjà définis dans auth_check.php

@@ -43,7 +43,12 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once DB_CONFIG_PATH;
 $admin_id = $_SESSION['admin_id'] ?? $_SESSION['login_id'] ?? null;
 if ($admin_id) {
-    $conn = getDbConnection();
+    // Utiliser la connexion $link créée par mysqlcon.php
+    global $link;
+    $conn = $link;
+    if ($conn === null || !$conn) {
+        die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+    }
     $stmt = $conn->prepare("SELECT firstname, lastname, email FROM director WHERE created_by = ? LIMIT 1");
     $stmt->bind_param("s", $admin_id);
     $stmt->execute();

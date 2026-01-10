@@ -18,53 +18,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'];
         
         // Vérifier que le message existe
-        $conn = getDbConnection();
-        $check_sql = "SELECT id FROM help_messages WHERE id = ?";
-        $check_stmt = $conn->prepare($check_sql);
-        $check_stmt->bind_param("i", $message_id);
-        $check_stmt->execute();
-        $result = $check_stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            // Effectuer l'action demandée
-            switch ($action) {
-                case 'mark_in_progress':
-                    $update_sql = "UPDATE help_messages SET status = 'in_progress' WHERE id = ?";
-                    break;
-                case 'mark_resolved':
-                    $update_sql = "UPDATE help_messages SET status = 'resolved' WHERE id = ?";
-                    break;
-                case 'delete':
-                    $update_sql = "DELETE FROM help_messages WHERE id = ?";
-                    break;
-                default:
-                    $error_message = "Action non reconnue.";
-                    break;
-            }
+        global $link;
+        $conn = $link;
+        if ($conn === null || !$conn) {
+            $error_message = 'Erreur de connexion à la base de données.';
+        } else {
+            $check_sql = "SELECT id FROM help_messages WHERE id = ?";
+            $check_stmt = $conn->prepare($check_sql);
+            $check_stmt->bind_param("i", $message_id);
+            $check_stmt->execute();
+            $result = $check_stmt->get_result();
             
-            if (!empty($update_sql)) {
-                $update_stmt = $conn->prepare($update_sql);
-                $update_stmt->bind_param("i", $message_id);
-                
-                if ($update_stmt->execute()) {
-                    $success_message = "L'action a été effectuée avec succès.";
-                } else {
-                    $error_message = "Une erreur est survenue lors de l'exécution de l'action.";
+            if ($result->num_rows > 0) {
+                // Effectuer l'action demandée
+                switch ($action) {
+                    case 'mark_in_progress':
+                        $update_sql = "UPDATE help_messages SET status = 'in_progress' WHERE id = ?";
+                        break;
+                    case 'mark_resolved':
+                        $update_sql = "UPDATE help_messages SET status = 'resolved' WHERE id = ?";
+                        break;
+                    case 'delete':
+                        $update_sql = "DELETE FROM help_messages WHERE id = ?";
+                        break;
+                    default:
+                        $error_message = "Action non reconnue.";
+                        break;
                 }
                 
-                $update_stmt->close();
+                if (!empty($update_sql)) {
+                    $update_stmt = $conn->prepare($update_sql);
+                    $update_stmt->bind_param("i", $message_id);
+                    
+                    if ($update_stmt->execute()) {
+                        $success_message = "L'action a été effectuée avec succès.";
+                    } else {
+                        $error_message = "Une erreur est survenue lors de l'exécution de l'action.";
+                    }
+                    
+                    $update_stmt->close();
+                }
+            } else {
+                $error_message = "Le message demandé n'existe pas.";
             }
-        } else {
-            $error_message = "Le message demandé n'existe pas.";
+            
+            $check_stmt->close();
         }
-        
-        $check_stmt->close();
-        $conn->close();
     }
 }
 
 // Récupérer les messages
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 // Créer la table help_messages si elle n'existe pas
 $sql_create_table = "CREATE TABLE IF NOT EXISTS help_messages (

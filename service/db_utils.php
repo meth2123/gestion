@@ -3,51 +3,14 @@
  * Utilitaires pour la migration de mysql vers mysqli
  */
 
-// Charger la configuration de la base de données
-require_once __DIR__ . '/db_config.php';
+/**
+ * IMPORTANT: Ce fichier utilise UNIQUEMENT le $link créé par mysqlcon.php (chargé via main.php)
+ * Ne JAMAIS créer une nouvelle connexion ici - toujours utiliser le $link global existant
+ */
 
-// Connexion à la base de données
-// Ne pas utiliser die() pour permettre aux pages de s'afficher même si la DB n'est pas accessible
-$link = null;
-
-// Vérifier si on doit vraiment se connecter (éviter les connexions inutiles)
-if (isset($db_host) && isset($db_user) && isset($db_password)) {
-    try {
-        // Timeout configurable via variable d'environnement (défaut: 10 secondes pour connexions lentes)
-        $connect_timeout = (int)getenv('DB_CONNECT_TIMEOUT') ?: 10;
-        $read_timeout = (int)getenv('DB_READ_TIMEOUT') ?: 30;
-        
-        // Définir le timeout socket (pour les connexions lentes comme Railway)
-        ini_set('default_socket_timeout', $connect_timeout);
-        
-        if (!empty($db_name)) {
-            $link = @mysqli_connect($db_host, $db_user, $db_password, $db_name);
-        } else {
-            // Se connecter sans spécifier de base de données
-            $link = @mysqli_connect($db_host, $db_user, $db_password);
-        }
-        
-        if ($link) {
-            // Définir les timeouts pour les requêtes (plus long pour les requêtes complexes)
-            mysqli_options($link, MYSQLI_OPT_CONNECT_TIMEOUT, $connect_timeout);
-            mysqli_options($link, MYSQLI_OPT_READ_TIMEOUT, $read_timeout);
-        } else {
-            $error_msg = mysqli_connect_error();
-            error_log("Erreur de connexion à la base de données: " . $error_msg);
-            // Ne pas utiliser die() - laisser $link = null pour que les pages puissent s'afficher
-            $link = null;
-        }
-    } catch (Exception $e) {
-        error_log("Exception lors de la connexion à la base de données: " . $e->getMessage());
-        // Ne pas utiliser die() - laisser $link = null
-        $link = null;
-    }
-}
-
-// Définir le jeu de caractères (seulement si la connexion est établie)
-if ($link) {
-    mysqli_set_charset($link, "utf8");
-}
+// Utiliser la connexion $link créée par mysqlcon.php (chargé par main.php)
+// Ne JAMAIS créer une nouvelle connexion ici
+global $link;
 
 /**
  * Exécute une requête SQL de manière sécurisée

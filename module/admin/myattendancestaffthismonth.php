@@ -29,8 +29,9 @@ try {
     $response['debug']['staff_id'] = $staff_id;
     $response['debug']['admin_id'] = $admin_id;
 
-    // Initialize database connection
-    $conn = getDbConnection();
+    // Utiliser la connexion $link créée par main.php
+    global $link;
+    $conn = $link;
     if (!$conn) {
         throw new Exception('Database connection failed');
     }
@@ -80,7 +81,7 @@ try {
     }
 
     $stmt->close();
-    $conn->close();
+    // Ne pas fermer $conn car il est partagé ($link)
 
 } catch (Exception $e) {
     $response['error'] = $e->getMessage();

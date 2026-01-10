@@ -1,6 +1,5 @@
 <?php
 include_once('main.php');
-require_once('../../db/config.php');
 include_once('../../service/db_utils.php');
 
 // Ensure user is logged in and has admin privileges
@@ -11,8 +10,14 @@ if (!isset($_SESSION['login_id'])) {
 
 $check = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+
+// Vérifier si la connexion a réussi
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
 
 // Verify admin privileges using prepared statement
 $sql = "SELECT id FROM admin WHERE id = ?";
@@ -36,8 +41,7 @@ $admin_id = $check;
 // Store admin_id in session for AJAX requests
 $_SESSION['admin_id'] = $admin_id;
 
-// Initialize database connection for the rest of the page
-$conn = getDbConnection();
+// $conn est déjà défini ci-dessus (utilise $link)
 
 // Traiter la justification d'une absence
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['justify'])) {
@@ -336,7 +340,7 @@ $content .= '</select>
 </html>';
 
 $stmt->close();
-$conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 
 // Output the content
 echo $content;

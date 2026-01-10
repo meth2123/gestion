@@ -1,13 +1,16 @@
 <?php
 include_once('main.php');
 include_once('includes/auth_check.php');
-require_once('../../db/config.php');
 
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 $admin_id = $_SESSION['login_id'];
 
-// Initialize database connection
-$conn = getDbConnection();
+// Utiliser la connexion $link créée par main.php
+global $link;
+$conn = $link;
+if ($conn === null || !$conn) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway.');
+}
 
 $searchKey = $_GET['key'];
 
@@ -80,5 +83,5 @@ if ($result->num_rows > 0): ?>
 
 // Close database connection
 $stmt->close();
-$conn->close();
+// Ne pas fermer $conn car il est partagé ($link)
 ?>
