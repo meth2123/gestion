@@ -1,12 +1,16 @@
 <?php
 // Ne pas démarrer la session ici car elle est déjà démarrée dans main.php
-require_once __DIR__ . '/../../service/mysqlcon.php';
+include_once('main.php'); // Inclure main.php en premier (charge mysqlcon.php)
 require_once __DIR__ . '/../../service/NotificationService.php';
 require_once __DIR__ . '/../../service/AuthService.php';
-include_once('main.php'); // Inclure main.php qui démarre déjà la session
 
 // Vérifier si l'utilisateur est connecté et est un administrateur
 
+// S'assurer que $link est disponible
+global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
 
 // Vérifier et ajouter la colonne created_by si elle n'existe pas
 $result = $link->query("SHOW COLUMNS FROM students LIKE 'created_by'");

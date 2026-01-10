@@ -27,6 +27,9 @@ error_log("Semestre sélectionné : " . $selected_semester);
 // Récupérer les moyennes générales de toutes les classes
 $selected_semester = isset($_GET['semester']) ? (int)$_GET['semester'] : 1;
 global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
 $escaped_semester = $link->real_escape_string($selected_semester);
 
 // Vérifier d'abord s'il y a des notes pour ce semestre

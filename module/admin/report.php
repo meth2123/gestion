@@ -11,6 +11,59 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 
 $admin_id = $_SESSION['login_id'];
 
+// S'assurer que $link est disponible (créé par main.php via mysqlcon.php)
+global $link;
+if ($link === null || !$link) {
+    die('
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Erreur de connexion à la base de données</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                margin: 0;
+                background-color: #f5f5f5;
+            }
+            .error-container {
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                max-width: 600px;
+            }
+            h1 {
+                color: #d32f2f;
+                margin-top: 0;
+            }
+            .error-details {
+                background: #ffebee;
+                padding: 1rem;
+                border-left: 4px solid #d32f2f;
+                margin: 1rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="error-container">
+            <h1>❌ Erreur de connexion à la base de données</h1>
+            <div class="error-details">
+                <p><strong>La connexion à la base de données a échoué.</strong></p>
+                <p>Veuillez vérifier les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.</p>
+            </div>
+            <p><a href="../../">← Retour à l\'accueil</a></p>
+        </div>
+    </body>
+    </html>
+    ');
+}
+
 // Récupérer les informations de l'administrateur
 $admin_info_sql = "SELECT name, email FROM admin WHERE id = ?";
 $admin_stmt = $link->prepare($admin_info_sql);

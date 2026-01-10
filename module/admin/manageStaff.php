@@ -7,6 +7,12 @@ include_once('includes/admin_utils.php');
 // L'ID de l'administrateur est déjà défini dans auth_check.php
 // $admin_id = $_SESSION['login_id'];
 
+// S'assurer que $link est disponible
+global $link;
+if ($link === null || !$link) {
+    die('Erreur de connexion à la base de données. Vérifiez les variables d\'environnement Railway (MYSQL_URL, MYSQL_PUBLIC_URL, etc.) sur Render.');
+}
+
 // Get staff list created by this admin
 $sql = "SELECT s.*, u.userid 
         FROM staff s 

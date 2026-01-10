@@ -20,7 +20,7 @@ $is_render = (
     !empty(getEnvVar('MYSQLHOST')) ||
     !empty(getEnvVar('MYSQL_HOST')) ||
     !empty(getEnvVar('MYSQL_URL')) ||
-    !empty(getEnvVar('MYSQL_PUBLIC_URL')) ||
+    !empty(getEnvVar('MYSQL_PUBLIC_URL'))
 );
 
 // Déterminer les paramètres de connexion

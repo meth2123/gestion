@@ -59,6 +59,11 @@ if ($link) {
 function db_query($sql, $params = [], $types = '') {
     global $link;
     
+    if (!$link) {
+        error_log("Erreur : Pas de connexion à la base de données dans db_query()");
+        return false;
+    }
+    
     if (empty($params)) {
         $result = mysqli_query($link, $sql);
         if (!$result) {
@@ -188,6 +193,9 @@ function db_fetch_all($sql, $params = [], $types = '') {
 // Fonction pour obtenir la dernière erreur SQL
 function db_error() {
     global $link;
+    if (!$link) {
+        return "Pas de connexion à la base de données";
+    }
     return mysqli_error($link);
 }
 
