@@ -142,7 +142,7 @@ class SubscriptionService {
             // Utiliser la fonction unifiée (Resend ou SMTP)
             require_once(__DIR__ . '/smtp_config.php');
             
-            $renewal_url = "https://schoolmanager.sn/module/subscription/renew.php?school=" . urlencode($school_name);
+            $renewal_url = "https://gestion-rlhq.onrender.com/module/subscription/renew.php?school=" . urlencode($school_name);
             
             $email_subject = 'Votre abonnement SchoolManager expire bientôt';
             $email_body = "

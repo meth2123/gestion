@@ -71,53 +71,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email_message .= "Message:\n" . $message;
                 $headers = "From: " . $email;
                 
-                // Utiliser la configuration SMTP centralisée
+                // Utiliser la fonction unifiée (Resend ou SMTP)
                 require_once(__DIR__ . '/../service/smtp_config.php');
-                $smtp_config = get_smtp_config();
-                $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
                 
-                // Si PHPMailer est installé, on l'utilise pour envoyer l'email
-                if ($phpmailer_installed) {
-                    // Charger PHPMailer
-                    require_once($phpmailer_path);
+                try {
+                    // Convertir le message texte en HTML simple
+                    $email_body_html = nl2br(htmlspecialchars($email_message));
                     
-                    try {
-                        // Créer une nouvelle instance de PHPMailer
-                        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-                        
-                        // Configuration du serveur SMTP avec options améliorées
-                        $mail->isSMTP();
-                        $mail->Host = $smtp_config['host'];
-                        $mail->SMTPAuth = true;
-                        $mail->Username = $smtp_config['username'];
-                        $mail->Password = $smtp_password;
-                        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                        $mail->Port = $smtp_config['port'];
-                        $mail->CharSet = 'UTF-8';
-                        
-                        // Configurer les options SMTP optimisées pour Render.com
-                        configure_smtp_for_render($mail);
-                        $mail->SMTPAutoTLS = true;
-                        
-                        // Expéditeur et destinataire
-                        $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-                        $mail->addAddress($to);
-                        $mail->addReplyTo($email, $name);
-                        
-                        // Contenu de l'email
-                        $mail->isHTML(false);
-                        $mail->Subject = $email_subject;
-                        $mail->Body = $email_message;
-                        
-                        // Envoi de l'email
-                        $mail->send();
+                    // Utiliser la fonction unifiée (Resend prioritaire, SMTP en fallback)
+                    $result = send_email_unified($to, '', $email_subject, $email_body_html, $email_message);
+                    
+                    if ($result['success']) {
                         $success_message = "Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.";
-                    } catch (\Exception $e) {
+                    } else {
                         // En cas d'erreur, on enregistre l'erreur mais on continue
-                        error_log("Erreur d'envoi d'email depuis le centre d'aide: " . $e->getMessage());
+                        error_log("Erreur d'envoi d'email depuis le centre d'aide: " . $result['message']);
                         $success_message = "Votre message a été enregistré avec succès. Nous vous répondrons dans les plus brefs délais.";
                     }
-                } else {
+                } catch (\Exception $e) {
+                    // En cas d'erreur, on enregistre l'erreur mais on continue
+                    error_log("Erreur d'envoi d'email depuis le centre d'aide: " . $e->getMessage());
+                    $success_message = "Votre message a été enregistré avec succès. Nous vous répondrons dans les plus brefs délais.";
+                }
+                
+                // Fallback vers mail() si nécessaire
+                if (false) {
                     // Si PHPMailer n'est pas installé, on utilise la fonction mail() native
                     $old_error_reporting = error_reporting();
                     error_reporting($old_error_reporting & ~E_WARNING);

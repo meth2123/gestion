@@ -96,15 +96,17 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
     
     // Vérifier si Resend est configuré (priorité)
     if (is_resend_configured()) {
-        error_log("Using Resend API for email to: $to_email");
+        error_log("✅ Resend API configured - Using Resend API for email to: $to_email");
         $result = send_email_via_resend($to_email, $to_name, $subject, $html_body, $text_body);
         
         if ($result['success']) {
             return ['success' => true, 'message' => $result['message']];
         } else {
             // Si Resend échoue, essayer SMTP en fallback
-            error_log("Resend failed, falling back to SMTP: " . $result['message']);
+            error_log("❌ Resend failed, falling back to SMTP: " . $result['message']);
         }
+    } else {
+        error_log("⚠️ RESEND_API_KEY not configured - Using SMTP (PHPMailer) for email to: $to_email");
     }
     
     // Fallback vers SMTP (PHPMailer)

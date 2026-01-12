@@ -267,40 +267,15 @@ class PayDunyaService {
             return false;
         }
 
-        // Utiliser la configuration SMTP centralisée
+        // Utiliser la fonction unifiée (Resend ou SMTP)
         require_once(__DIR__ . '/smtp_config.php');
-        $smtp_config = get_smtp_config();
-        // Utiliser le mot de passe nettoyé (sans espaces) pour Gmail
-        $smtp_password = get_clean_smtp_password();
-
+        
         try {
-            $mail = new PHPMailer(true);
-            
-            // Configuration du serveur
-            $mail->isSMTP();
-            $mail->Host = $smtp_config['host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $smtp_config['username'];
-            $mail->Password = $smtp_password;
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = $smtp_config['port'];
-            $mail->CharSet = 'UTF-8';
-            
-            // Configurer les options SMTP optimisées pour Render.com
-            configure_smtp_for_render($mail);
-            
-            // Destinataires
-            $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-            $mail->addAddress($email);
-            
-            // Contenu
-            $mail->isHTML(true);
-            $mail->Subject = 'Vos identifiants SchoolManager';
-            
             // URL de connexion
-            $login_url = $this->config['store']['website_url'] . '/login.php';
+            $login_url = "https://gestion-rlhq.onrender.com/login.php";
             
-            $mail->Body = "
+            $email_subject = 'Vos identifiants SchoolManager';
+            $email_body = "
             <html>
             <head>
                 <style>
@@ -340,7 +315,7 @@ class PayDunyaService {
             </html>";
 
             // Version texte pour les clients mail qui ne supportent pas le HTML
-            $mail->AltBody = "
+            $email_text = "
             Bienvenue sur SchoolManager
 
             Cher administrateur,
@@ -358,12 +333,18 @@ class PayDunyaService {
             Cet email a été envoyé automatiquement, merci de ne pas y répondre.
             © " . date('Y') . " SchoolManager. Tous droits réservés.";
 
-            $mail->send();
-            error_log("Email de confirmation envoyé avec succès à {$email}");
-            return true;
+            $result = send_email_unified($email, '', $email_subject, $email_body, $email_text);
+            
+            if ($result['success']) {
+                error_log("Email de confirmation envoyé avec succès à {$email}");
+                return true;
+            } else {
+                error_log("Erreur lors de l'envoi de l'email de confirmation : " . $result['message']);
+                return false;
+            }
 
         } catch (Exception $e) {
-            error_log("Erreur lors de l'envoi de l'email de confirmation : " . $mail->ErrorInfo);
+            error_log("Erreur lors de l'envoi de l'email de confirmation : " . $e->getMessage());
             return false;
         }
     }
@@ -373,29 +354,14 @@ class PayDunyaService {
      */
     private function sendRenewalConfirmationEmail($email, $school_name) {
         try {
-            $mail = new PHPMailer(true);
-            
-            // Configuration SMTP
-            $mail->isSMTP();
-            $mail->Host = $this->config['mail']['smtp_host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $this->config['mail']['smtp_username'];
-            $mail->Password = $this->config['mail']['smtp_password'];
-            $mail->SMTPSecure = $this->config['mail']['smtp_encryption'];
-            $mail->Port = $this->config['mail']['smtp_port'];
-            
-            // Destinataire et expéditeur
-            $mail->setFrom($this->config['mail']['from_email'], $this->config['mail']['from_name']);
-            $mail->addAddress($email);
-            
-            // Contenu de l'email
-            $mail->isHTML(true);
-            $mail->Subject = 'Abonnement renouvelé avec succès - SchoolManager';
+            // Utiliser la fonction unifiée (Resend ou SMTP)
+            require_once(__DIR__ . '/smtp_config.php');
             
             // URL de connexion
-            $login_url = $this->config['store']['website_url'] . '/login.php';
+            $login_url = "https://gestion-rlhq.onrender.com/login.php";
             
-            $mail->Body = "
+            $email_subject = 'Abonnement renouvelé avec succès - SchoolManager';
+            $email_body = "
             <html>
             <head>
                 <style>
@@ -429,7 +395,7 @@ class PayDunyaService {
             </html>";
 
             // Version texte
-            $mail->AltBody = "
+            $email_text = "
             Abonnement Renouvelé - SchoolManager
 
             Cher administrateur,
@@ -442,12 +408,18 @@ class PayDunyaService {
             Cet email a été envoyé automatiquement, merci de ne pas y répondre.
             © " . date('Y') . " SchoolManager. Tous droits réservés.";
 
-            $mail->send();
-            error_log("Email de confirmation de renouvellement envoyé avec succès à {$email}");
-            return true;
+            $result = send_email_unified($email, '', $email_subject, $email_body, $email_text);
+            
+            if ($result['success']) {
+                error_log("Email de confirmation de renouvellement envoyé avec succès à {$email}");
+                return true;
+            } else {
+                error_log("Erreur lors de l'envoi de l'email de renouvellement : " . $result['message']);
+                return false;
+            }
 
         } catch (Exception $e) {
-            error_log("Erreur lors de l'envoi de l'email de renouvellement : " . $mail->ErrorInfo);
+            error_log("Erreur lors de l'envoi de l'email de renouvellement : " . $e->getMessage());
             return false;
         }
     }

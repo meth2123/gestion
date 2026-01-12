@@ -143,102 +143,82 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         'success'
                     );
 
-                    // Envoyer un email avec les identifiants
-                    if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
-                        try {
-                            $mail = new PHPMailer(true);
-                            
-                            // Configuration du serveur
-                            $mail->isSMTP();
-                            $mail->Host = $smtp_config['host'];
-                            $mail->SMTPAuth = true;
-                            $mail->Username = $smtp_config['username'];
-                            $mail->Password = $smtp_password;
-                            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-                            $mail->Port = $smtp_config['port'];
-                            $mail->CharSet = 'UTF-8';
-                            
-                            // Configurer les options SMTP optimisées pour Render.com
-                            configure_smtp_for_render($mail);
-                            
-                            // Destinataires
-                            $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-                            $mail->addAddress($subscription['admin_email']);
-                            
-                            // Contenu
-                            $mail->isHTML(true);
-                            $mail->Subject = "Vos identifiants SchoolManager - " . $subscription['school_name'];
-                            
-                            $login_url = "https://schoolmanager.sn/login.php";
-                            
-                            $mail->Body = "
-                                <html>
-                                <head>
-                                    <style>
-                                        body { font-family: Arial, sans-serif; line-height: 1.6; }
-                                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                                        .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
-                                        .content { padding: 20px; background: #f9fafb; }
-                                        .credentials { background: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                                        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 0.9em; }
-                                        .button { display: inline-block; padding: 10px 20px; background: #4F46E5; color: white; text-decoration: none; border-radius: 5px; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <div class='container'>
-                                        <div class='header'>
-                                            <h1>Bienvenue sur SchoolManager</h1>
-                                        </div>
-                                        <div class='content'>
-                                            <p>Cher administrateur,</p>
-                                            <p>Votre compte pour <strong>{$subscription['school_name']}</strong> a été créé avec succès.</p>
-                                            <p>Voici vos identifiants de connexion :</p>
-                                            <div class='credentials'>
-                                                <p><strong>Identifiant :</strong> {$admin_id}</p>
-                                                <p><strong>Mot de passe :</strong> {$password}</p>
-                                            </div>
-                                            <p><strong>Important :</strong> Pour des raisons de sécurité, veuillez modifier votre mot de passe lors de votre première connexion.</p>
-                                            <p style='text-align: center; margin-top: 30px;'>
-                                                <a href='{$login_url}' class='button'>Accéder à mon espace</a>
-                                            </p>
-                                        </div>
-                                        <div class='footer'>
-                                            <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
-                                            <p>&copy; " . date('Y') . " SchoolManager. Tous droits réservés.</p>
-                                        </div>
+                    // Envoyer un email avec les identifiants (utilise Resend si configuré, sinon SMTP)
+                    try {
+                        $login_url = "https://gestion-rlhq.onrender.com/login.php";
+                        
+                        $email_subject = "Vos identifiants SchoolManager - " . $subscription['school_name'];
+                        $email_body = "
+                            <html>
+                            <head>
+                                <style>
+                                    body { font-family: Arial, sans-serif; line-height: 1.6; }
+                                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                                    .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
+                                    .content { padding: 20px; background: #f9fafb; }
+                                    .credentials { background: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                                    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 0.9em; }
+                                    .button { display: inline-block; padding: 10px 20px; background: #4F46E5; color: white; text-decoration: none; border-radius: 5px; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class='container'>
+                                    <div class='header'>
+                                        <h1>Bienvenue sur SchoolManager</h1>
                                     </div>
-                                </body>
-                                </html>
-                            ";
+                                    <div class='content'>
+                                        <p>Cher administrateur,</p>
+                                        <p>Votre compte pour <strong>{$subscription['school_name']}</strong> a été créé avec succès.</p>
+                                        <p>Voici vos identifiants de connexion :</p>
+                                        <div class='credentials'>
+                                            <p><strong>Identifiant :</strong> {$admin_id}</p>
+                                            <p><strong>Mot de passe :</strong> {$password}</p>
+                                        </div>
+                                        <p><strong>Important :</strong> Pour des raisons de sécurité, veuillez modifier votre mot de passe lors de votre première connexion.</p>
+                                        <p style='text-align: center; margin-top: 30px;'>
+                                            <a href='{$login_url}' class='button'>Accéder à mon espace</a>
+                                        </p>
+                                    </div>
+                                    <div class='footer'>
+                                        <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                                        <p>&copy; " . date('Y') . " SchoolManager. Tous droits réservés.</p>
+                                    </div>
+                                </div>
+                            </body>
+                            </html>
+                        ";
+                        
+                        $email_text = "
+                            Bienvenue sur SchoolManager
 
-                            // Version texte pour les clients mail qui ne supportent pas le HTML
-                            $mail->AltBody = "
-                                Bienvenue sur SchoolManager
+                            Cher administrateur,
 
-                                Cher administrateur,
+                            Votre compte pour {$subscription['school_name']} a été créé avec succès.
 
-                                Votre compte pour {$subscription['school_name']} a été créé avec succès.
+                            Voici vos identifiants de connexion :
+                            Identifiant : {$admin_id}
+                            Mot de passe : {$password}
 
-                                Voici vos identifiants de connexion :
-                                Identifiant : {$admin_id}
-                                Mot de passe : {$password}
+                            Important : Pour des raisons de sécurité, veuillez modifier votre mot de passe lors de votre première connexion.
 
-                                Important : Pour des raisons de sécurité, veuillez modifier votre mot de passe lors de votre première connexion.
+                            Vous pouvez vous connecter à votre espace administrateur en visitant : {$login_url}
 
-                                Vous pouvez vous connecter à votre espace administrateur en visitant : {$login_url}
-
-                                Cet email a été envoyé automatiquement, merci de ne pas y répondre.
-                                © " . date('Y') . " SchoolManager. Tous droits réservés.
-                            ";
-
-                            $mail->send();
+                            Cet email a été envoyé automatiquement, merci de ne pas y répondre.
+                            © " . date('Y') . " SchoolManager. Tous droits réservés.
+                        ";
+                        
+                        // Utiliser la fonction unifiée (Resend prioritaire, SMTP en fallback)
+                        $result = send_email_unified($subscription['admin_email'], '', $email_subject, $email_body, $email_text);
+                        
+                        if ($result['success']) {
                             $success_message = "Le statut a été mis à jour, le compte administrateur a été créé et les identifiants ont été envoyés par email.";
-                        } catch (Exception $e) {
-                            error_log("Erreur lors de l'envoi de l'email : " . $mail->ErrorInfo);
-                            $success_message = "Le compte administrateur a été créé, mais l'envoi de l'email a échoué : " . $mail->ErrorInfo;
+                        } else {
+                            error_log("Erreur lors de l'envoi de l'email : " . $result['message']);
+                            $success_message = "Le compte administrateur a été créé, mais l'envoi de l'email a échoué : " . $result['message'];
                         }
-                    } else {
-                        $success_message = "Le compte administrateur a été créé, mais PHPMailer n'est pas installé. Impossible d'envoyer l'email avec les identifiants.";
+                    } catch (Exception $e) {
+                        error_log("Erreur lors de l'envoi de l'email : " . $e->getMessage());
+                        $success_message = "Le compte administrateur a été créé, mais l'envoi de l'email a échoué : " . $e->getMessage();
                     }
                 } else {
                     // Si le compte existe déjà, juste mettre à jour le statut

@@ -127,25 +127,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Utiliser la configuration SMTP centralisée
         $smtp_config = get_smtp_config();
         $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
+        // Utiliser la fonction unifiée (Resend ou SMTP)
+        require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
+        
+        $login_url = "https://gestion-rlhq.onrender.com/login.php";
         $subject = 'Création de votre compte Directeur';
-        $body =
-            'Bonjour ' . htmlspecialchars($firstname) . ' ' . htmlspecialchars($lastname) . ',<br><br>' .
-            'Votre compte Directeur a été créé.<br><br>' .
-            '<strong>Identifiant :</strong> ' . htmlspecialchars($userid) . '<br>' .
-            '<strong>Mot de passe :</strong> ' . htmlspecialchars($plain_password) . '<br><br>' .
-            'Merci de vous connecter et de changer votre mot de passe dès votre première connexion.<br>' .
-            '<a href="http://localhost/gestion/login.php">Se connecter</a>';
-        // Ajouter le mot de passe nettoyé à la config pour mailer_utils
-        $smtp_config['password_clean'] = $smtp_password;
-        $resultat_mail = envoyer_email_smtp($email, $firstname . ' ' . $lastname, $subject, $body, $smtp_config);
-        if ($resultat_mail === true) {
+        $body = '
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
+                    .content { padding: 20px; background: #f9fafb; }
+                    .credentials { background: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                    .button { display: inline-block; padding: 10px 20px; background: #4F46E5; color: white; text-decoration: none; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Compte Directeur Créé</h1>
+                    </div>
+                    <div class="content">
+                        <p>Bonjour ' . htmlspecialchars($firstname) . ' ' . htmlspecialchars($lastname) . ',</p>
+                        <p>Votre compte Directeur a été créé avec succès.</p>
+                        <div class="credentials">
+                            <p><strong>Identifiant :</strong> ' . htmlspecialchars($userid) . '</p>
+                            <p><strong>Mot de passe :</strong> ' . htmlspecialchars($plain_password) . '</p>
+                        </div>
+                        <p><strong>Important :</strong> Merci de vous connecter et de changer votre mot de passe dès votre première connexion.</p>
+                        <p style="text-align: center; margin-top: 30px;">
+                            <a href="' . $login_url . '" class="button">Se connecter</a>
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
+        ';
+        $text_body = "Bonjour $firstname $lastname,\n\nVotre compte Directeur a été créé.\n\nIdentifiant : $userid\nMot de passe : $plain_password\n\nMerci de vous connecter et de changer votre mot de passe dès votre première connexion.\n\nConnectez-vous ici : $login_url";
+        
+        $resultat_mail = send_email_unified($email, $firstname . ' ' . $lastname, $subject, $body, $text_body);
+        if ($resultat_mail['success'] === true) {
             error_log('Mail directeur envoyé avec succès !');
             header("Location: ../director_created.php?email=" . urlencode($email));
             exit();
         } else {
-            error_log('Erreur envoi email directeur : ' . $resultat_mail);
+            error_log('Erreur envoi email directeur : ' . $resultat_mail['message']);
             // Tu peux afficher une erreur à l'admin ou rediriger avec un message
-            header("Location: create_director_form.php?error=mail_error&msg=" . urlencode($resultat_mail));
+            header("Location: create_director_form.php?error=mail_error&msg=" . urlencode($resultat_mail['message']));
             exit();
         }
     } else {
@@ -165,43 +195,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("isss", $director_id, $action_type, $created_by, $details);
     $stmt->execute();
 
-    // Envoi de l'email avec PHPMailer
+    // Envoi de l'email avec la fonction unifiée (Resend ou SMTP)
     require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
-    $smtp_config = get_smtp_config();
-    $smtp_password = get_clean_smtp_password();
     
     try {
-        $mail = new PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host = $smtp_config['host'];
-        $mail->SMTPAuth = true;
-        $mail->Username = $smtp_config['username'];
-        $mail->Password = $smtp_password;
-        $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = $smtp_config['port'];
-        $mail->CharSet = 'UTF-8';
-        
-        // Configurer les options SMTP optimisées pour Render.com
-        configure_smtp_for_render($mail);
-        $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-        $mail->addAddress($email, $firstname . ' ' . $lastname);
-        $mail->isHTML(true);
-        $mail->Subject = 'Votre compte Directeur sur Gestion Scolaire';
-        $mail->Body = '
-            Bonjour ' . htmlspecialchars($firstname) . ' ' . htmlspecialchars($lastname) . ',<br><br>
-            Votre compte Directeur a été créé.<br><br>
-            <strong>Identifiant :</strong> ' . htmlspecialchars($userid) . '<br>
-            <strong>Mot de passe :</strong> ' . htmlspecialchars($plain_password) . '<br><br>
-            Merci de vous connecter et de changer votre mot de passe dès votre première connexion.<br>
-            <a href="http://localhost/gestion/login.php">Se connecter</a>
+        $login_url = "https://gestion-rlhq.onrender.com/login.php";
+        $email_subject = 'Votre compte Directeur sur Gestion Scolaire';
+        $email_body = '
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                    .header { background: #4F46E5; color: white; padding: 20px; text-align: center; }
+                    .content { padding: 20px; background: #f9fafb; }
+                    .credentials { background: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                    .button { display: inline-block; padding: 10px 20px; background: #4F46E5; color: white; text-decoration: none; border-radius: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <h1>Compte Directeur Créé</h1>
+                    </div>
+                    <div class="content">
+                        <p>Bonjour ' . htmlspecialchars($firstname) . ' ' . htmlspecialchars($lastname) . ',</p>
+                        <p>Votre compte Directeur a été créé avec succès.</p>
+                        <div class="credentials">
+                            <p><strong>Identifiant :</strong> ' . htmlspecialchars($userid) . '</p>
+                            <p><strong>Mot de passe :</strong> ' . htmlspecialchars($plain_password) . '</p>
+                        </div>
+                        <p><strong>Important :</strong> Merci de vous connecter et de changer votre mot de passe dès votre première connexion.</p>
+                        <p style="text-align: center; margin-top: 30px;">
+                            <a href="' . $login_url . '" class="button">Se connecter</a>
+                        </p>
+                    </div>
+                </div>
+            </body>
+            </html>
         ';
-        $mail->AltBody = "Bonjour $firstname $lastname,\nVotre compte Directeur a été créé.\nIdentifiant : $userid\nMot de passe : $plain_password\nMerci de vous connecter et de changer votre mot de passe dès votre première connexion.";
-        $mail->send();
-        error_log('PHPMailer : Email envoyé avec succès !');
+        $email_text = "Bonjour $firstname $lastname,\n\nVotre compte Directeur a été créé.\n\nIdentifiant : $userid\nMot de passe : $plain_password\n\nMerci de vous connecter et de changer votre mot de passe dès votre première connexion.\n\nConnectez-vous ici : $login_url";
+        
+        $result = send_email_unified($email, $firstname . ' ' . $lastname, $email_subject, $email_body, $email_text);
+        
+        // Vérifier si Resend est configuré pour le log
+        require_once(__DIR__ . '/../../service/resend_service.php');
+        $resend_configured = function_exists('is_resend_configured') && is_resend_configured();
+        
+        if ($result['success']) {
+            error_log('Email envoyé avec succès via ' . ($resend_configured ? 'Resend' : 'SMTP') . ' !');
+        } else {
+            error_log('Erreur lors de l\'envoi de l\'email : ' . $result['message']);
+        }
     } catch (Exception $e) {
-        error_log('PHPMailer Exception : ' . $mail->ErrorInfo . ' | Exception : ' . $e->getMessage());
+        error_log('Exception lors de l\'envoi de l\'email : ' . $e->getMessage());
     }
-    error_log('PHPMailer : Fin du bloc envoi mail');
     // Redirection avec succès
     header("Location: ../director_created.php?email=" . urlencode($email));
     exit();
