@@ -158,6 +158,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             $mail->Port = $smtp_config['port'];
                             $mail->CharSet = 'UTF-8';
                             
+                            // Configurer les options SMTP optimisées pour Render.com
+                            configure_smtp_for_render($mail);
+                            
                             // Destinataires
                             $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
                             $mail->addAddress($subscription['admin_email']);

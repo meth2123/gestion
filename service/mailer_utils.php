@@ -12,14 +12,24 @@ use PHPMailer\PHPMailer\Exception;
 
 /**
  * Envoie un email SMTP via PHPMailer avec la config fournie.
+ * DÉPRÉCIÉ : Utilisez send_email_unified() de smtp_config.php qui supporte Resend et SMTP
+ * 
  * @param string $to_email  Email du destinataire
  * @param string $to_name   Nom du destinataire
  * @param string $subject   Sujet du mail
  * @param string $body      Corps HTML du mail
  * @param array  $smtp_config  Tableau de config SMTP
- * @return bool|string  true si OK, sinon message d’erreur
+ * @return bool|string  true si OK, sinon message d'erreur
  */
 function envoyer_email_smtp($to_email, $to_name, $subject, $body, $smtp_config) {
+    // Essayer d'utiliser la fonction unifiée (Resend ou SMTP)
+    require_once(__DIR__ . '/smtp_config.php');
+    if (function_exists('send_email_unified')) {
+        $result = send_email_unified($to_email, $to_name, $subject, $body);
+        return $result['success'] ? true : $result['message'];
+    }
+    
+    // Fallback vers l'ancienne méthode SMTP uniquement
     try {
         // Utiliser le mot de passe nettoyé si disponible, sinon utiliser celui de la config
         $password = isset($smtp_config['password_clean']) ? $smtp_config['password_clean'] : 
@@ -37,6 +47,10 @@ function envoyer_email_smtp($to_email, $to_name, $subject, $body, $smtp_config) 
                            : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = $smtp_config['port'];
         $mail->CharSet = 'UTF-8';
+        
+        // Charger la fonction de configuration SMTP pour Render.com
+        require_once(__DIR__ . '/smtp_config.php');
+        configure_smtp_for_render($mail);
         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
         $mail->addAddress($to_email, $to_name);
         $mail->isHTML(true);

@@ -286,19 +286,8 @@ class PayDunyaService {
             $mail->Port = $smtp_config['port'];
             $mail->CharSet = 'UTF-8';
             
-            // Options SMTP améliorées pour les connexions depuis des serveurs distants
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true
-                ]
-            ];
-            
-            // Timeouts augmentés pour les connexions lentes
-            $mail->Timeout = 30;
-            $mail->SMTPKeepAlive = false;
-            $mail->SMTPAutoTLS = true;
+            // Configurer les options SMTP optimisées pour Render.com
+            configure_smtp_for_render($mail);
             
             // Destinataires
             $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);

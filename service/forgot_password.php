@@ -127,76 +127,48 @@ if (!$phpmailer_installed) {
     exit();
 }
 
-// Si PHPMailer est installé, on continue avec l'envoi de l'email
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+// Utiliser la fonction unifiée (Resend ou SMTP)
+require_once(__DIR__ . '/smtp_config.php');
+
+// Déterminer l'adresse email en fonction du type d'utilisateur
+$recipient_email = '';
+if ($user['usertype'] === 'parent') {
+    // Pour les parents, on utilise le numéro de téléphone comme identifiant
+    $recipient_email = $stored_contact . '@sms.parent'; // Format spécial pour les parents
+} else {
+    $recipient_email = $stored_contact;
+}
+
+// Message personnalisé selon le type d'utilisateur
+$email_subject = 'Réinitialisation de votre mot de passe';
+if ($user['usertype'] === 'parent') {
+    $email_body = "
+        <h2>Réinitialisation de votre mot de passe</h2>
+        <p>Cher parent,</p>
+        <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+        <p>Voici votre code de réinitialisation : <strong>{$reset_code}</strong></p>
+        <p>Ce code expirera dans 1 heure.</p>
+        <p>Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer ce message.</p>
+        <p>Cordialement,<br>L'équipe de gestion scolaire</p>
+    ";
+} else {
+    $email_body = "
+        <h2>Réinitialisation de votre mot de passe</h2>
+        <p>Bonjour,</p>
+        <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+        <p>Voici votre code de réinitialisation : <strong>{$reset_code}</strong></p>
+        <p>Ce code expirera dans 1 heure.</p>
+        <p>Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer cet email.</p>
+        <p>Cordialement,<br>L'équipe de gestion scolaire</p>
+    ";
+}
 
 try {
-    $mail = new PHPMailer(true);
+    // Utiliser la fonction unifiée (Resend prioritaire, SMTP en fallback)
+    $result = send_email_unified($recipient_email, '', $email_subject, $email_body);
     
-    // Configuration du serveur SMTP avec options améliorées
-    $mail->isSMTP();
-    $mail->Host = $smtp_config['host'];
-    $mail->SMTPAuth = true;
-    $mail->Username = $smtp_config['username'];
-    $mail->Password = $smtp_password;
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port = $smtp_config['port'];
-    $mail->CharSet = 'UTF-8';
-    
-    // Options SMTP améliorées pour les connexions depuis des serveurs distants
-    $mail->SMTPOptions = [
-        'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true
-        ]
-    ];
-    
-    // Timeouts augmentés pour les connexions lentes
-    $mail->Timeout = 30; // Timeout général de 30 secondes
-    $mail->SMTPKeepAlive = false;
-    $mail->SMTPAutoTLS = true;
-    
-    // Destinataires
-    $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-    
-    // Déterminer l'adresse email en fonction du type d'utilisateur
-    $recipient_email = '';
-    if ($user['usertype'] === 'parent') {
-        // Pour les parents, on utilise le numéro de téléphone comme identifiant
-        $recipient_email = $stored_contact . '@sms.parent'; // Format spécial pour les parents
-    } else {
-        $recipient_email = $stored_contact;
-    }
-    
-    $mail->addAddress($recipient_email);
-    
-    // Contenu
-    $mail->isHTML(true);
-    $mail->Subject = 'Réinitialisation de votre mot de passe';
-    
-    // Message personnalisé selon le type d'utilisateur
-    if ($user['usertype'] === 'parent') {
-        $mail->Body = "
-            <h2>Réinitialisation de votre mot de passe</h2>
-            <p>Cher parent,</p>
-            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-            <p>Voici votre code de réinitialisation : <strong>{$reset_code}</strong></p>
-            <p>Ce code expirera dans 1 heure.</p>
-            <p>Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer ce message.</p>
-            <p>Cordialement,<br>L'équipe de gestion scolaire</p>
-        ";
-    } else {
-        $mail->Body = "
-            <h2>Réinitialisation de votre mot de passe</h2>
-            <p>Bonjour,</p>
-            <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-            <p>Voici votre code de réinitialisation : <strong>{$reset_code}</strong></p>
-            <p>Ce code expirera dans 1 heure.</p>
-            <p>Si vous n'avez pas demandé cette réinitialisation, veuillez ignorer cet email.</p>
-            <p>Cordialement,<br>L'équipe de gestion scolaire</p>
-        ";
+    if (!$result['success']) {
+        throw new Exception($result['message']);
     }
     
     // Version texte pour les clients mail qui ne supportent pas le HTML
@@ -217,7 +189,7 @@ try {
     header("Location: reset_password.php");
     
 } catch (Exception $e) {
-    error_log("Erreur d'envoi d'email: " . $mail->ErrorInfo);
+    error_log("Erreur d'envoi d'email: " . $e->getMessage());
     
     // Utiliser une session temporaire même en cas d'erreur
     if (session_status() === PHP_SESSION_NONE) {

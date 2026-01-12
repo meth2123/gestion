@@ -166,17 +166,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->execute();
 
     // Envoi de l'email avec PHPMailer
-    require_once dirname(dirname(dirname(__FILE__))) . '/service/forgot_password.php'; // pour la config SMTP
+    require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
+    $smtp_config = get_smtp_config();
+    $smtp_password = get_clean_smtp_password();
+    
     try {
         $mail = new PHPMailer(true);
         $mail->isSMTP();
         $mail->Host = $smtp_config['host'];
         $mail->SMTPAuth = true;
         $mail->Username = $smtp_config['username'];
-        $mail->Password = $smtp_config['password'];
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Password = $smtp_password;
+        $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = $smtp_config['port'];
         $mail->CharSet = 'UTF-8';
+        
+        // Configurer les options SMTP optimisées pour Render.com
+        configure_smtp_for_render($mail);
         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
         $mail->addAddress($email, $firstname . ' ' . $lastname);
         $mail->isHTML(true);

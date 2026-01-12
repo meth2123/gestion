@@ -139,48 +139,13 @@ class SubscriptionService {
      */
     private function sendExpiryWarningEmail($email, $username, $school_name, $expiry_date) {
         try {
-            $mail = new PHPMailer(true);
-            
-            // Utiliser la configuration SMTP centralisée
+            // Utiliser la fonction unifiée (Resend ou SMTP)
             require_once(__DIR__ . '/smtp_config.php');
-            $smtp_config = get_smtp_config();
-            $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
-            
-            // Configuration SMTP avec options améliorées
-            $mail->isSMTP();
-            $mail->Host = $smtp_config['host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = $smtp_config['username'];
-            $mail->Password = $smtp_password;
-            $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = $smtp_config['port'];
-            $mail->CharSet = 'UTF-8';
-            
-            // Options SMTP améliorées pour les connexions depuis des serveurs distants
-            $mail->SMTPOptions = [
-                'ssl' => [
-                    'verify_peer' => false,
-                    'verify_peer_name' => false,
-                    'allow_self_signed' => true
-                ]
-            ];
-            
-            // Timeouts augmentés pour les connexions lentes
-            $mail->Timeout = 30; // Timeout général de 30 secondes
-            $mail->SMTPKeepAlive = false;
-            $mail->SMTPAutoTLS = true;
-            
-            // Destinataires
-            $mail->setFrom('methndiaye43@gmail.com', 'SchoolManager');
-            $mail->addAddress($email, $username);
-            
-            // Contenu
-            $mail->isHTML(true);
-            $mail->Subject = 'Votre abonnement SchoolManager expire bientôt';
             
             $renewal_url = "https://schoolmanager.sn/module/subscription/renew.php?school=" . urlencode($school_name);
             
-            $mail->Body = "
+            $email_subject = 'Votre abonnement SchoolManager expire bientôt';
+            $email_body = "
             <html>
             <head>
                 <style>
@@ -215,7 +180,12 @@ class SubscriptionService {
             </body>
             </html>";
 
-            $mail->send();
+            $result = send_email_unified($email, $username, $email_subject, $email_body);
+            
+            if (!$result['success']) {
+                throw new Exception($result['message']);
+            }
+            
             return true;
         } catch (Exception $e) {
             error_log("Erreur lors de l'envoi de l'email d'expiration : " . $e->getMessage());

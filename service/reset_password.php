@@ -8,19 +8,15 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Vérifier si le formulaire a été soumis
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Récupérer le code depuis la session ou depuis POST (pour compatibilité)
+    // Récupérer les données depuis POST (l'utilisateur doit saisir le code manuellement depuis l'email)
     $user_id = isset($_POST['user_id']) ? trim($_POST['user_id']) : '';
     $reset_code = isset($_POST['reset_code']) ? trim($_POST['reset_code']) : '';
     
-    // Si le code n'est pas dans POST, essayer de le récupérer depuis la session
-    if (empty($reset_code) && isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry'])) {
+    // Si user_id n'est pas fourni dans POST, essayer de le récupérer depuis la session
+    if (empty($user_id) && isset($_SESSION['reset_user_id']) && isset($_SESSION['reset_code_expiry'])) {
         // Vérifier que la session n'a pas expiré
         if (time() < $_SESSION['reset_code_expiry']) {
-            $reset_code = $_SESSION['reset_code'];
-            // Si user_id n'est pas fourni, utiliser celui de la session
-            if (empty($user_id) && isset($_SESSION['reset_user_id'])) {
-                $user_id = $_SESSION['reset_user_id'];
-            }
+            $user_id = $_SESSION['reset_user_id'];
         } else {
             // Session expirée
             unset($_SESSION['reset_code'], $_SESSION['reset_user_id'], $_SESSION['reset_code_expiry']);
@@ -28,6 +24,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
     }
+    
+    // IMPORTANT : Le code doit être saisi manuellement par l'utilisateur depuis l'email
+    // On ne le récupère PAS depuis la session pour des raisons de sécurité
+    // Cela garantit que l'utilisateur a bien accès à son email
     
     $new_password = isset($_POST['new_password']) ? trim($_POST['new_password']) : '';
     $confirm_password = isset($_POST['confirm_password']) ? trim($_POST['confirm_password']) : '';
@@ -55,8 +55,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $result = $stmt->get_result();
 
     if ($result->num_rows === 0) {
-        header("Location: ../?error=" . urlencode("Code de réinitialisation invalide ou expiré"));
-        exit();
+        // Optionnel : vérifier aussi si le code existe dans la session (pour double vérification)
+        $session_code_valid = false;
+        if (isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry']) && time() < $_SESSION['reset_code_expiry']) {
+            if (hash_equals($_SESSION['reset_code'], $reset_code)) {
+                $session_code_valid = true;
+            }
+        }
+        
+        if (!$session_code_valid) {
+            header("Location: reset_password.php?error=" . urlencode("Code de réinitialisation invalide ou expiré. Veuillez vérifier le code reçu par email."));
+            exit();
+        }
     }
 
     // Hasher le mot de passe avant de le stocker
@@ -134,12 +144,11 @@ if (!empty($reset_code_from_url) && !empty($user_id_from_url)) {
     exit();
 }
 
-// Récupérer depuis la session pour pré-remplir le formulaire
-$prefill_code = '';
+// Récupérer l'user_id depuis la session pour pré-remplir (mais PAS le code pour la sécurité)
+// Le code doit être saisi manuellement depuis l'email pour prouver l'accès à la boîte mail
 $prefill_user_id = '';
-if (isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry']) && time() < $_SESSION['reset_code_expiry']) {
-    $prefill_code = $_SESSION['reset_code'];
-    $prefill_user_id = $_SESSION['reset_user_id'] ?? '';
+if (isset($_SESSION['reset_user_id']) && isset($_SESSION['reset_code_expiry']) && time() < $_SESSION['reset_code_expiry']) {
+    $prefill_user_id = $_SESSION['reset_user_id'];
 }
 ?>
 <!DOCTYPE html>
@@ -158,8 +167,18 @@ if (isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry']) && t
                     Réinitialisation du mot de passe
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600">
-                    Entrez votre code de réinitialisation et votre nouveau mot de passe
+                    Entrez le code que vous avez reçu par email et votre nouveau mot de passe
                 </p>
+                <?php if (isset($_GET['error'])): ?>
+                    <div class="mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                        <p class="text-sm text-red-600"><?= htmlspecialchars($_GET['error']) ?></p>
+                    </div>
+                <?php endif; ?>
+                <?php if (isset($_GET['success'])): ?>
+                    <div class="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                        <p class="text-sm text-green-600"><?= htmlspecialchars($_GET['success']) ?></p>
+                    </div>
+                <?php endif; ?>
             </div>
             <form class="mt-8 space-y-6" action="" method="POST">
                 <div class="rounded-md shadow-sm -space-y-px">
@@ -173,12 +192,9 @@ if (isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry']) && t
                     <div>
                         <label for="reset_code" class="sr-only">Code de réinitialisation</label>
                         <input id="reset_code" name="reset_code" type="text" required 
-                               value="<?= htmlspecialchars($prefill_code) ?>"
                                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="Code de réinitialisation" <?= !empty($prefill_code) ? 'readonly' : '' ?>>
-                        <?php if (!empty($prefill_code)): ?>
-                            <p class="mt-1 text-xs text-gray-500">Code pré-rempli depuis votre session</p>
-                        <?php endif; ?>
+                               placeholder="Code de réinitialisation (vérifiez votre email)">
+                        <p class="mt-1 text-xs text-gray-500">Entrez le code que vous avez reçu par email</p>
                     </div>
                     <div>
                         <label for="new_password" class="sr-only">Nouveau mot de passe</label>
