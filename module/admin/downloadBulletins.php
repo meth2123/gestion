@@ -266,7 +266,7 @@ function generateStudentBulletin($student_id, $class_id, $period, $output_path) 
         }
     }
     
-    // Section des absences
+    // Section des absences (statistiques uniquement)
     $pdf->Ln(10);
     $pdf->SetFont('helvetica', 'B', 12);
     $pdf->Cell(0, 10, 'Absences', 0, 1, 'L');
@@ -276,38 +276,6 @@ function generateStudentBulletin($student_id, $class_id, $period, $output_path) 
     $pdf->SetFont('helvetica', '', 10);
     $pdf->Cell(0, 7, 'Total des absences : ' . $total_absences, 0, 1, 'L');
     $pdf->Cell(0, 7, 'Justifiées : ' . $justified_absences . ' | Non justifiées : ' . $unjustified_absences, 0, 1, 'L');
-    $pdf->Ln(3);
-    
-    if ($total_absences > 0) {
-        // En-tête du tableau des absences
-        $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->SetFillColor(240, 240, 240);
-        $pdf->Cell(30, 6, 'Date', 1, 0, 'C', true);
-        $pdf->Cell(20, 6, 'Heure', 1, 0, 'C', true);
-        $pdf->Cell(50, 6, 'Matière', 1, 0, 'C', true);
-        $pdf->Cell(30, 6, 'Statut', 1, 0, 'C', true);
-        $pdf->Cell(50, 6, 'Justification', 1, 1, 'C', true);
-        
-        // Données des absences
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->SetFillColor(255, 255, 255);
-        
-        foreach ($absences as $absence) {
-            $status_text = $absence['status'] === 'absent' ? 'Absent' : 'En retard';
-            $justification = !empty($absence['comment']) && trim($absence['comment']) !== '' 
-                ? trim($absence['comment']) 
-                : 'Non justifiée';
-            
-            $pdf->Cell(30, 5, $absence['date'], 1, 0, 'C');
-            $pdf->Cell(20, 5, substr($absence['course_time'], 0, 5), 1, 0, 'C');
-            $pdf->Cell(50, 5, substr($absence['course_name'], 0, 30), 1, 0, 'L');
-            $pdf->Cell(30, 5, $status_text, 1, 0, 'C');
-            $pdf->Cell(50, 5, substr($justification, 0, 35), 1, 1, 'L');
-        }
-    } else {
-        $pdf->SetFont('helvetica', 'I', 10);
-        $pdf->Cell(0, 7, 'Aucune absence enregistrée pour ce semestre.', 0, 1, 'L');
-    }
     
     // Pied de page
     $pdf->Ln(10);

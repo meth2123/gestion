@@ -312,7 +312,7 @@ $pdf->Cell($w[5], 7, isset($general_average) ? number_format($general_average, 2
 
 $pdf->Ln(10);
 
-// Section des absences
+// Section des absences (statistiques uniquement)
 $pdf->SetFont('helvetica', 'B', 12);
 $pdf->Cell(0, 10, 'Absences', 0, 1, 'L');
 $pdf->Ln(2);
@@ -321,41 +321,6 @@ $pdf->Ln(2);
 $pdf->SetFont('helvetica', '', 10);
 $pdf->Cell(0, 7, 'Total des absences : ' . $total_absences, 0, 1, 'L');
 $pdf->Cell(0, 7, 'Justifiées : ' . $justified_absences . ' | Non justifiées : ' . $unjustified_absences, 0, 1, 'L');
-$pdf->Ln(3);
-
-if ($total_absences > 0) {
-    // En-tête du tableau des absences
-    $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->SetFillColor(240, 240, 240);
-    $absence_header = array('Date', 'Heure', 'Matière', 'Statut', 'Justification');
-    $absence_w = array(30, 20, 50, 30, 50);
-    
-    // En-tête du tableau
-    for($i = 0; $i < count($absence_header); $i++) {
-        $pdf->Cell($absence_w[$i], 6, $absence_header[$i], 1, 0, 'C', true);
-    }
-    $pdf->Ln();
-    
-    // Données des absences
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->SetFillColor(255, 255, 255);
-    
-    foreach ($absences as $absence) {
-        $status_text = $absence['status'] === 'absent' ? 'Absent' : 'En retard';
-        $justification = !empty($absence['comment']) && trim($absence['comment']) !== '' 
-            ? trim($absence['comment']) 
-            : 'Non justifiée';
-        
-        $pdf->Cell($absence_w[0], 5, $absence['date'], 1, 0, 'C');
-        $pdf->Cell($absence_w[1], 5, substr($absence['course_time'], 0, 5), 1, 0, 'C');
-        $pdf->Cell($absence_w[2], 5, substr($absence['course_name'], 0, 30), 1, 0, 'L');
-        $pdf->Cell($absence_w[3], 5, $status_text, 1, 0, 'C');
-        $pdf->Cell($absence_w[4], 5, substr($justification, 0, 35), 1, 1, 'L');
-    }
-} else {
-    $pdf->SetFont('helvetica', 'I', 10);
-    $pdf->Cell(0, 7, 'Aucune absence enregistrée pour ce semestre.', 0, 1, 'L');
-}
 
 // Nettoyer tout tampon de sortie avant de générer le PDF
 ob_end_clean();
