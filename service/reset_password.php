@@ -1,10 +1,34 @@
 <?php
 include_once('mysqlcon.php');
 
+// Démarrer la session si nécessaire
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 // Vérifier si le formulaire a été soumis
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Récupérer le code depuis la session ou depuis POST (pour compatibilité)
     $user_id = isset($_POST['user_id']) ? trim($_POST['user_id']) : '';
     $reset_code = isset($_POST['reset_code']) ? trim($_POST['reset_code']) : '';
+    
+    // Si le code n'est pas dans POST, essayer de le récupérer depuis la session
+    if (empty($reset_code) && isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry'])) {
+        // Vérifier que la session n'a pas expiré
+        if (time() < $_SESSION['reset_code_expiry']) {
+            $reset_code = $_SESSION['reset_code'];
+            // Si user_id n'est pas fourni, utiliser celui de la session
+            if (empty($user_id) && isset($_SESSION['reset_user_id'])) {
+                $user_id = $_SESSION['reset_user_id'];
+            }
+        } else {
+            // Session expirée
+            unset($_SESSION['reset_code'], $_SESSION['reset_user_id'], $_SESSION['reset_code_expiry']);
+            header("Location: ../?error=" . urlencode("Le code de réinitialisation a expiré. Veuillez en demander un nouveau."));
+            exit();
+        }
+    }
+    
     $new_password = isset($_POST['new_password']) ? trim($_POST['new_password']) : '';
     $confirm_password = isset($_POST['confirm_password']) ? trim($_POST['confirm_password']) : '';
 
@@ -88,9 +112,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("ss", $user_id, $reset_code);
     $stmt->execute();
 
+    // Nettoyer la session
+    unset($_SESSION['reset_code'], $_SESSION['reset_user_id'], $_SESSION['reset_code_expiry']);
+
     // Rediriger vers la page de connexion avec un message de succès
     header("Location: ../?success=" . urlencode("Votre mot de passe a été réinitialisé avec succès"));
     exit();
+}
+
+// Récupérer le code depuis la session ou depuis l'URL (pour compatibilité avec les anciens liens)
+$reset_code_from_url = isset($_GET['code']) ? trim($_GET['code']) : '';
+$user_id_from_url = isset($_GET['user_id']) ? trim($_GET['user_id']) : '';
+
+// Si le code est dans l'URL, le stocker dans la session et rediriger sans l'URL
+if (!empty($reset_code_from_url) && !empty($user_id_from_url)) {
+    $_SESSION['reset_code'] = $reset_code_from_url;
+    $_SESSION['reset_user_id'] = $user_id_from_url;
+    $_SESSION['reset_code_expiry'] = time() + 3600;
+    // Rediriger sans les paramètres dans l'URL
+    header("Location: reset_password.php");
+    exit();
+}
+
+// Récupérer depuis la session pour pré-remplir le formulaire
+$prefill_code = '';
+$prefill_user_id = '';
+if (isset($_SESSION['reset_code']) && isset($_SESSION['reset_code_expiry']) && time() < $_SESSION['reset_code_expiry']) {
+    $prefill_code = $_SESSION['reset_code'];
+    $prefill_user_id = $_SESSION['reset_user_id'] ?? '';
 }
 ?>
 <!DOCTYPE html>
@@ -117,14 +166,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div>
                         <label for="user_id" class="sr-only">Identifiant</label>
                         <input id="user_id" name="user_id" type="text" required 
+                               value="<?= htmlspecialchars($prefill_user_id) ?>"
                                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="Votre identifiant">
+                               placeholder="Votre identifiant" <?= !empty($prefill_user_id) ? 'readonly' : '' ?>>
                     </div>
                     <div>
                         <label for="reset_code" class="sr-only">Code de réinitialisation</label>
                         <input id="reset_code" name="reset_code" type="text" required 
+                               value="<?= htmlspecialchars($prefill_code) ?>"
                                class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                               placeholder="Code de réinitialisation">
+                               placeholder="Code de réinitialisation" <?= !empty($prefill_code) ? 'readonly' : '' ?>>
+                        <?php if (!empty($prefill_code)): ?>
+                            <p class="mt-1 text-xs text-gray-500">Code pré-rempli depuis votre session</p>
+                        <?php endif; ?>
                     </div>
                     <div>
                         <label for="new_password" class="sr-only">Nouveau mot de passe</label>

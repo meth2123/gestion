@@ -204,14 +204,31 @@ try {
     
     $mail->send();
     
-    // Redirection vers la page de réinitialisation avec le code
-    header("Location: reset_password.php?code=" . urlencode($reset_code) . "&user_id=" . urlencode($user_id));
+    // Utiliser une session temporaire pour stocker le code de manière sécurisée
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    // Stocker le code et l'user_id dans la session avec expiration
+    $_SESSION['reset_code'] = $reset_code;
+    $_SESSION['reset_user_id'] = $user_id;
+    $_SESSION['reset_code_expiry'] = time() + 3600; // Expire dans 1 heure
+    
+    // Redirection vers la page de réinitialisation SANS le code dans l'URL
+    header("Location: reset_password.php");
     
 } catch (Exception $e) {
     error_log("Erreur d'envoi d'email: " . $mail->ErrorInfo);
     
-    // En cas d'erreur, rediriger vers la page de réinitialisation avec le code
-    header("Location: reset_password.php?code=" . urlencode($reset_code) . "&user_id=" . urlencode($user_id));
+    // Utiliser une session temporaire même en cas d'erreur
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    $_SESSION['reset_code'] = $reset_code;
+    $_SESSION['reset_user_id'] = $user_id;
+    $_SESSION['reset_code_expiry'] = time() + 3600;
+    
+    // Redirection vers la page de réinitialisation SANS le code dans l'URL
+    header("Location: reset_password.php");
 }
 
 exit();
