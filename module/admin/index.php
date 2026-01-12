@@ -309,13 +309,32 @@ $content = <<<HTML
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="./attendTeacher.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-success">
+            <a href="./teacherAttendance.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-success">
                 <div class="card-body">
-                    <h5 class="card-title">Présence profs</h5>
-                    <p class="card-text text-muted small">Gérer présences enseignants</p>
+                    <h5 class="card-title">Présence enseignants</h5>
+                    <p class="card-text text-muted small">Marquer présences enseignants</p>
                 </div>
             </a>
         </div>
+        <div class="col-6 col-md-3">
+            <a href="./staffAttendance.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-info">
+                <div class="card-body">
+                    <h5 class="card-title">Présence personnel</h5>
+                    <p class="card-text text-muted small">Marquer présences personnel</p>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="./studentAttendance.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Présence élèves</h5>
+                    <p class="card-text text-muted small">Consulter présences élèves</p>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <div class="row g-3">
         <div class="col-6 col-md-3">
             <a href="./attendStaff.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-secondary">
                 <div class="card-body">

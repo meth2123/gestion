@@ -180,8 +180,8 @@ $notificationBell = new NotificationBell($link, $check, 'teacher');
                         <a href="course.php?course_id=5" class="list-group-item list-group-item-action <?php echo (basename($_SERVER['PHP_SELF']) === 'course.php' && isset($_GET['course_id']) && $_GET['course_id'] == '5') ? 'active' : ''; ?>">
                             <i class="fas fa-graduation-cap me-2"></i>Notes
                         </a>
-                        <a href="attendance.php" class="list-group-item list-group-item-action <?php echo basename($_SERVER['PHP_SELF']) === 'attendance.php' ? 'active' : ''; ?>">
-                            <i class="fas fa-calendar-check me-2"></i>Présences
+                        <a href="markStudentAttendance.php" class="list-group-item list-group-item-action <?php echo (basename($_SERVER['PHP_SELF']) === 'markStudentAttendance.php' || basename($_SERVER['PHP_SELF']) === 'saveStudentAttendance.php') ? 'active' : ''; ?>">
+                            <i class="fas fa-calendar-check me-2"></i>Marquer Présence Élèves
                         </a>
                         <a href="exam.php" class="list-group-item list-group-item-action <?php echo (basename($_SERVER['PHP_SELF']) === 'exam.php' || basename($_SERVER['PHP_SELF']) === 'view_exam.php') ? 'active' : ''; ?>">
                             <i class="fas fa-clock me-2"></i>Examens

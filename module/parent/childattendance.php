@@ -1,11 +1,12 @@
 <?php
 include_once('main.php');
+include_once('../../service/mysqlcon.php');
 include_once('../../service/db_utils.php');
 
 // Récupération des informations du parent
 $parent_info = db_fetch_row(
     "SELECT * FROM parents WHERE id = ?",
-    [$_SESSION['parent_id']],
+    [$check],
     's'
 );
 
@@ -13,115 +14,271 @@ if (!$parent_info) {
     header("Location: ../../?error=parent_not_found");
     exit();
 }
+
+// Récupération de la liste des enfants
+$children = db_fetch_all(
+    "SELECT s.*, c.name as class_name 
+     FROM students s 
+     LEFT JOIN class c ON s.classid = c.id
+     WHERE s.parentid = ? 
+     ORDER BY s.name",
+    [$check],
+    's'
+);
+
+// Récupérer l'enfant sélectionné
+$selected_child_id = $_GET['child_id'] ?? ($children[0]['id'] ?? '');
+$selected_period = $_GET['period'] ?? 'thismonth'; // thismonth, all
+
+// Récupérer les présences de l'enfant sélectionné
+$attendances = [];
+if ($selected_child_id) {
+    // Vérifier que l'enfant appartient bien au parent
+    $child_check = false;
+    foreach ($children as $child) {
+        if ($child['id'] === $selected_child_id) {
+            $child_check = true;
+            break;
+        }
+    }
+    
+    if ($child_check) {
+        $query = "SELECT sa.*, c.name as course_name, cl.name as class_name
+                  FROM student_attendance sa
+                  JOIN course c ON sa.course_id = c.id
+                  JOIN class cl ON sa.class_id = cl.id
+                  WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)";
+        
+        $params = [$selected_child_id];
+        $types = 's';
+        
+        if ($selected_period === 'thismonth') {
+            $query .= " AND MONTH(sa.datetime) = MONTH(CURRENT_DATE) 
+                       AND YEAR(sa.datetime) = YEAR(CURRENT_DATE)";
+        }
+        
+        $query .= " ORDER BY sa.datetime DESC";
+        
+        $attendances = db_fetch_all($query, $params, $types);
+    }
+}
+
+// Calculer les statistiques
+$stats = [
+    'total' => 0,
+    'present' => 0,
+    'absent' => 0,
+    'late' => 0,
+    'excused' => 0
+];
+
+foreach ($attendances as $attendance) {
+    $stats['total']++;
+    $status = $attendance['status'] ?? 'present';
+    if (isset($stats[$status])) {
+        $stats[$status]++;
+    }
+}
+
+ob_start();
 ?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page non trouvée - Système de Gestion Scolaire</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Présences des Enfants</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .status-badge {
+            font-size: 0.85em;
+            padding: 4px 8px;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-light">
     <!-- Header -->
-    <nav class="bg-white shadow-lg">
-        <div class="max-w-7xl mx-auto px-4">
-            <div class="flex justify-between items-center py-4">
-                <div class="flex items-center">
-                    <img src="../../source/logo.jpg" class="h-12 w-12 object-contain" alt="School Management System"/>
-                    <h1 class="ml-4 text-xl font-semibold text-gray-800">Système de Gestion Scolaire</h1>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <span class="text-gray-600">Bonjour, <?php echo htmlspecialchars($parent_info['fathername']); ?></span>
-                    <a href="logout.php" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Déconnexion
-                    </a>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="index.php">
+                <img src="../../source/logo.jpg" class="rounded-circle me-2" width="40" height="40" alt="Logo"/>
+                Système de Gestion Scolaire
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text text-light me-3">Bonjour, <?= htmlspecialchars($parent_info['fathername']) ?></span>
+                <a href="logout.php" class="btn btn-danger btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i>Déconnexion
+                </a>
             </div>
         </div>
     </nav>
 
-    <!-- Menu de navigation -->
-    <div class="bg-white shadow-md mt-6 mx-4 lg:mx-auto max-w-7xl rounded-lg">
-        <div class="flex flex-wrap justify-center gap-4 p-4">
-            <a href="index.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-home mr-2"></i>Accueil
-            </a>
-            <a href="modify.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-key mr-2"></i>Changer le mot de passe
-            </a>
-            <a href="checkchild.php" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-child mr-2"></i>Information enfant
-            </a>
-            <a href="childpayment.php" class="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-money-bill-wave mr-2"></i>Paiements
-            </a>
-            <a href="childattendance.php" class="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-calendar-check mr-2"></i>Présences
-            </a>
-            <a href="childreport.php" class="bg-teal-500 hover:bg-teal-600 text-white px-6 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out">
-                <i class="fas fa-file-alt mr-2"></i>Bulletins
-            </a>
-        </div>
-    </div>
-
-    <!-- Contenu principal - Page 404 -->
-    <div class="max-w-7xl mx-auto px-4 py-16">
-        <div class="text-center">
-            <div class="mb-8">
-                <i class="fas fa-exclamation-circle text-8xl text-red-500 mb-4"></i>
-                <h1 class="text-6xl font-bold text-gray-800 mb-4">404</h1>
-                <h2 class="text-3xl font-semibold text-gray-600 mb-8">Page non trouvée</h2>
-                <p class="text-xl text-gray-600 mb-8">
-                    La page de gestion des présences est en cours de développement.<br>
-                    Nous vous prions de nous excuser pour ce désagrément.
-                </p>
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm mb-4">
+        <div class="container">
+            <div class="nav nav-pills py-2">
+                <a class="nav-link" href="index.php">
+                    <i class="fas fa-home me-1"></i>Accueil
+                </a>
+                <a class="nav-link" href="checkchild.php">
+                    <i class="fas fa-child me-1"></i>Informations Enfants
+                </a>
+                <a class="nav-link active" href="childattendance.php">
+                    <i class="fas fa-calendar-check me-1"></i>Présences
+                </a>
+                <a class="nav-link" href="childreport.php">
+                    <i class="fas fa-file-alt me-1"></i>Bulletins
+                </a>
+                <a class="nav-link" href="childpayment.php">
+                    <i class="fas fa-money-bill-wave me-1"></i>Paiements
+                </a>
             </div>
-            
-            <div class="space-y-4">
-                <p class="text-gray-600">Vous pouvez :</p>
-                <div class="flex flex-wrap justify-center gap-4">
-                    <a href="index.php" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-medium transition duration-150 ease-in-out">
-                        <i class="fas fa-home mr-2"></i>Retourner à l'accueil
-                    </a>
-                    <a href="checkchild.php" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg text-lg font-medium transition duration-150 ease-in-out">
-                        <i class="fas fa-child mr-2"></i>Voir les informations des enfants
-                    </a>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <h2 class="h3 fw-bold mb-4"><i class="fas fa-calendar-check me-2"></i>Présences des Enfants</h2>
+
+        <?php if (empty($children)): ?>
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>Aucun enfant associé à votre compte.
+            </div>
+        <?php else: ?>
+            <!-- Sélection de l'enfant et période -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="child_id" class="form-label">Enfant</label>
+                            <select name="child_id" id="child_id" class="form-select" onchange="this.form.submit()">
+                                <?php foreach ($children as $child): ?>
+                                    <option value="<?= htmlspecialchars($child['id']) ?>" 
+                                            <?= $selected_child_id == $child['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($child['name']) ?> - <?= htmlspecialchars($child['class_name'] ?? 'Sans classe') ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="period" class="form-label">Période</label>
+                            <select name="period" id="period" class="form-select" onchange="this.form.submit()">
+                                <option value="thismonth" <?= $selected_period === 'thismonth' ? 'selected' : '' ?>>Ce mois</option>
+                                <option value="all" <?= $selected_period === 'all' ? 'selected' : '' ?>>Tout l'historique</option>
+                            </select>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            <div class="mt-12 p-6 bg-white rounded-lg shadow-md max-w-2xl mx-auto">
-                <h3 class="text-xl font-semibold text-gray-800 mb-4">Fonctionnalités à venir</h3>
-                <ul class="text-left space-y-3 text-gray-600">
-                    <li class="flex items-center">
-                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                        Consultation des présences de vos enfants
-                    </li>
-                    <li class="flex items-center">
-                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                        Historique des absences
-                    </li>
-                    <li class="flex items-center">
-                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                        Statistiques de présence
-                    </li>
-                    <li class="flex items-center">
-                        <i class="fas fa-check-circle text-green-500 mr-2"></i>
-                        Notifications en cas d'absence
-                    </li>
-                </ul>
-            </div>
-        </div>
+            <!-- Statistiques -->
+            <?php if ($selected_child_id && $stats['total'] > 0): ?>
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <div class="card text-center border-primary">
+                            <div class="card-body">
+                                <h5 class="card-title text-primary"><?= $stats['total'] ?></h5>
+                                <p class="card-text text-muted small">Total</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-success">
+                            <div class="card-body">
+                                <h5 class="card-title text-success"><?= $stats['present'] ?></h5>
+                                <p class="card-text text-muted small">Présents</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-danger">
+                            <div class="card-body">
+                                <h5 class="card-title text-danger"><?= $stats['absent'] ?></h5>
+                                <p class="card-text text-muted small">Absents</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card text-center border-warning">
+                            <div class="card-body">
+                                <h5 class="card-title text-warning"><?= $stats['late'] + $stats['excused'] ?></h5>
+                                <p class="card-text text-muted small">Retards/Excusés</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <!-- Liste des présences -->
+            <?php if ($selected_child_id): ?>
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Historique des présences</h5>
+                        <?php if (!empty($attendances)): ?>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Heure</th>
+                                            <th>Cours</th>
+                                            <th>Classe</th>
+                                            <th>Statut</th>
+                                            <th>Commentaire</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($attendances as $attendance): ?>
+                                            <?php
+                                            $datetime = new DateTime($attendance['datetime']);
+                                            $status = $attendance['status'] ?? 'present';
+                                            $badge_class = [
+                                                'present' => 'bg-success',
+                                                'absent' => 'bg-danger',
+                                                'late' => 'bg-warning',
+                                                'excused' => 'bg-info'
+                                            ];
+                                            $status_text = [
+                                                'present' => 'Présent',
+                                                'absent' => 'Absent',
+                                                'late' => 'En retard',
+                                                'excused' => 'Excusé'
+                                            ];
+                                            ?>
+                                            <tr>
+                                                <td><?= $datetime->format('d/m/Y') ?></td>
+                                                <td><?= $datetime->format('H:i') ?></td>
+                                                <td><?= htmlspecialchars($attendance['course_name']) ?></td>
+                                                <td><?= htmlspecialchars($attendance['class_name']) ?></td>
+                                                <td>
+                                                    <span class="badge <?= $badge_class[$status] ?? 'bg-secondary' ?> status-badge">
+                                                        <?= $status_text[$status] ?? $status ?>
+                                                    </span>
+                                                </td>
+                                                <td><?= htmlspecialchars($attendance['comment'] ?? '-') ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>Aucune présence enregistrée pour cette période.
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-white shadow-lg mt-8">
-        <div class="max-w-7xl mx-auto py-4 px-4">
-            <p class="text-center text-gray-500 text-sm">
-                © <?php echo date('Y'); ?> Système de Gestion Scolaire. Tous droits réservés.
-            </p>
-        </div>
-    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+
+<?php
+$content = ob_get_clean();
+// Pour les parents, on n'utilise pas le layout.php comme les autres modules
+echo $content;
+?>

@@ -116,8 +116,36 @@ try {
         echo "<li>ℹ️ Colonne datetime existe déjà</li>";
     }
     
-    // 5. Vérifier et ajouter la colonne comment
-    $check_column = "SHOW COLUMNS FROM attendance LIKE 'comment'";
+    // 5. Vérifier et ajouter la colonne status si elle n'existe pas
+    $check_status = "SHOW COLUMNS FROM attendance WHERE Field = 'status'";
+    $result = $conn->query($check_status);
+    
+    if ($result->num_rows == 0) {
+        // Déterminer après quelle colonne ajouter status
+        $check_time_slot = "SHOW COLUMNS FROM attendance WHERE Field = 'time_slot_id'";
+        $time_slot_result = $conn->query($check_time_slot);
+        
+        if ($time_slot_result->num_rows > 0) {
+            $alter_table = "ALTER TABLE attendance ADD COLUMN status ENUM('present', 'absent') NOT NULL DEFAULT 'present' AFTER time_slot_id";
+        } else {
+            $alter_table = "ALTER TABLE attendance ADD COLUMN status ENUM('present', 'absent') NOT NULL DEFAULT 'present' AFTER course_id";
+        }
+        
+        if ($conn->query($alter_table)) {
+            echo "<li>✅ Colonne status ajoutée avec succès</li>";
+            
+            // Mettre à jour les enregistrements existants
+            $update_status = "UPDATE attendance SET status = 'present' WHERE status IS NULL";
+            $conn->query($update_status);
+        } else {
+            throw new Exception("Erreur lors de l'ajout de status: " . $conn->error);
+        }
+    } else {
+        echo "<li>ℹ️ Colonne status existe déjà</li>";
+    }
+    
+    // 6. Vérifier et ajouter la colonne comment
+    $check_column = "SHOW COLUMNS FROM attendance WHERE Field = 'comment'";
     $result = $conn->query($check_column);
     
     if ($result->num_rows == 0) {
@@ -131,7 +159,7 @@ try {
         echo "<li>ℹ️ Colonne comment existe déjà</li>";
     }
     
-    // 6. Créer la table student_attendance pour les élèves
+    // 7. Créer la table student_attendance pour les élèves
     $create_student_attendance = "
     CREATE TABLE IF NOT EXISTS student_attendance (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -165,7 +193,7 @@ try {
         }
     }
     
-    // 7. Ajouter un index unique pour éviter les doublons (personne + cours + date/heure)
+    // 8. Ajouter un index unique pour éviter les doublons (personne + cours + date/heure)
     // Note: On ne peut pas créer un index unique si course_id peut être NULL
     // On crée plutôt un index composite sans contrainte unique
     $check_index = "SHOW INDEX FROM attendance WHERE Key_name = 'idx_person_course_datetime'";

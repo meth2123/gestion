@@ -22,7 +22,7 @@ if ($all_staff && $all_staff->num_rows > 0) {
         
         if ($check_result && $check_result->num_rows > 0) {
             // Vérifier si le membre du personnel a déjà été marqué présent aujourd'hui
-            $attendance_sql = "SELECT id FROM attendance WHERE attendedid = '" . $link->real_escape_string($staff['id']) . "' AND date = CURDATE()";
+            $attendance_sql = "SELECT id FROM attendance WHERE attendedid = '" . $link->real_escape_string($staff['id']) . "' AND DATE(datetime) = CURDATE()";
             $attendance_result = $link->query($attendance_sql);
             
             // Si le membre du personnel n'a pas été marqué présent, l'ajouter à la liste
