@@ -146,7 +146,7 @@ class SubscriptionService {
             $mail->Host = 'smtp.gmail.com';
             $mail->SMTPAuth = true;
             $mail->Username = 'methndiaye43@gmail.com';
-            $mail->Password = 'ccsf pihw falx zbnu';
+            $mail->Password = 'elaf cmwo iahy gghs';
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port = 587;
             $mail->CharSet = 'UTF-8';

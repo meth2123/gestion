@@ -54,6 +54,19 @@ class PayDunyaSDK {
         $endpoint = $this->base_url . '/checkout-invoice/create';
         error_log("Tentative de création de facture - Endpoint: " . $endpoint);
         
+        // Vérifier que les clés API ne sont pas vides
+        if (empty($this->master_key) || empty($this->public_key) || empty($this->private_key) || empty($this->token)) {
+            throw new Exception("Une ou plusieurs clés API PayDunya sont manquantes ou vides. Veuillez vérifier votre configuration.");
+        }
+        
+        // Vérifier que les clés ne sont pas les valeurs par défaut de test (si en mode production)
+        if ($this->mode === 'live') {
+            $test_master_key = 'J8Bk1t8t-AWZp-kVD1-WbjB-CndDy4hrVS7J';
+            if ($this->master_key === $test_master_key) {
+                error_log("ATTENTION: Clés de test détectées en mode production. Assurez-vous d'utiliser vos clés de production.");
+            }
+        }
+        
         // Vérifier que les URLs ne sont pas en localhost
         $website_url = $this->store['website_url'] ?? '';
         $callback_url = $this->store['callback_url'] ?? '';
@@ -96,9 +109,18 @@ class PayDunyaSDK {
         
         $response = $this->makeRequest('POST', $endpoint, $payload);
         
+        // Log de la réponse complète pour le débogage
+        error_log("Réponse complète de PayDunya: " . json_encode($response, JSON_PRETTY_PRINT));
+        
         // Vérification des codes de réponse PayDunya
         if (isset($response['response_code'])) {
-            switch ($response['response_code']) {
+            $response_code = $response['response_code'];
+            $response_text = $response['response_text'] ?? 'Aucun message';
+            
+            error_log("Code de réponse PayDunya: $response_code");
+            error_log("Message de réponse: $response_text");
+            
+            switch ($response_code) {
                 case '00':
                     // La facture a été créée avec succès
                     if (isset($response['token']) && isset($response['response_text'])) {
@@ -112,13 +134,43 @@ class PayDunyaSDK {
                     }
                     break;
                 case '1001':
-                    throw new Exception("Compte PayDunya non activé. Veuillez vous connecter à votre compte PayDunya et compléter l'activation et la confirmation par email.");
+                    // Code 1001 peut avoir plusieurs causes
+                    // Vérifier le message de réponse pour plus de détails
+                    $error_message = "Compte PayDunya non activé ou problème de configuration.";
+                    if (!empty($response_text) && $response_text !== 'Aucun message') {
+                        $error_message .= " Détails: " . $response_text;
+                    } else {
+                        $error_message .= " Veuillez vérifier : 1) L'activation complète de votre compte PayDunya (y compris la validation email et SMS), 2) La complétion du formulaire KYC, 3) La correspondance entre vos clés API et votre compte activé.";
+                    }
+                    error_log("ERREUR 1001 - Réponse complète: " . json_encode($response));
+                    throw new Exception($error_message);
                 case '1002':
-                    throw new Exception("Clés API PayDunya invalides. Veuillez vérifier vos clés API.");
+                    $error_message = "Clés API PayDunya invalides.";
+                    if (!empty($response_text) && $response_text !== 'Aucun message') {
+                        $error_message .= " Détails: " . $response_text;
+                    } else {
+                        $error_message .= " Veuillez vérifier que vos clés API (MASTER_KEY, PUBLIC_KEY, PRIVATE_KEY, TOKEN) sont correctes et correspondent à votre compte PayDunya.";
+                    }
+                    error_log("ERREUR 1002 - Réponse complète: " . json_encode($response));
+                    throw new Exception($error_message);
                 case '1003':
-                    throw new Exception("Montant invalide. Le montant doit être supérieur à 0.");
+                    $error_message = "Montant invalide.";
+                    if (!empty($response_text) && $response_text !== 'Aucun message') {
+                        $error_message .= " Détails: " . $response_text;
+                    } else {
+                        $error_message .= " Le montant doit être supérieur à 0.";
+                    }
+                    error_log("ERREUR 1003 - Réponse complète: " . json_encode($response));
+                    throw new Exception($error_message);
                 default:
-                    throw new Exception("Erreur PayDunya: " . ($response['response_text'] ?? 'Erreur inconnue'));
+                    $error_message = "Erreur PayDunya (Code: $response_code)";
+                    if (!empty($response_text) && $response_text !== 'Aucun message') {
+                        $error_message .= ": " . $response_text;
+                    } else {
+                        $error_message .= ". Réponse complète: " . json_encode($response);
+                    }
+                    error_log("ERREUR INCONNUE - Code: $response_code - Réponse complète: " . json_encode($response));
+                    throw new Exception($error_message);
             }
         }
 
@@ -146,11 +198,27 @@ class PayDunyaSDK {
         $ch = curl_init($endpoint);
         
         // Formatage des en-têtes selon la documentation PayDunya
+        // Nettoyer et valider chaque clé avant l'envoi
+        $master_key_clean = is_string($this->master_key) ? trim($this->master_key) : '';
+        $public_key_clean = is_string($this->public_key) ? trim($this->public_key) : '';
+        $private_key_clean = is_string($this->private_key) ? trim($this->private_key) : '';
+        $token_clean = is_string($this->token) ? trim($this->token) : '';
+        
+        // Vérifier que les clés nettoyées ne sont pas vides
+        if (empty($master_key_clean) || empty($public_key_clean) || empty($private_key_clean) || empty($token_clean)) {
+            error_log("ERREUR: Une ou plusieurs clés API sont vides après nettoyage");
+            error_log("Master Key: " . (empty($master_key_clean) ? 'VIDE' : substr($master_key_clean, 0, 10) . '...'));
+            error_log("Public Key: " . (empty($public_key_clean) ? 'VIDE' : substr($public_key_clean, 0, 10) . '...'));
+            error_log("Private Key: " . (empty($private_key_clean) ? 'VIDE' : substr($private_key_clean, 0, 10) . '...'));
+            error_log("Token: " . (empty($token_clean) ? 'VIDE' : substr($token_clean, 0, 10) . '...'));
+            throw new Exception("Une ou plusieurs clés API PayDunya sont vides. Veuillez vérifier votre configuration.");
+        }
+        
         $headers = [
-            'PAYDUNYA-MASTER-KEY: ' . (is_string($this->master_key) ? trim($this->master_key) : ''),
-            'PAYDUNYA-PUBLIC-KEY: ' . (is_string($this->public_key) ? trim($this->public_key) : ''),
-            'PAYDUNYA-PRIVATE-KEY: ' . (is_string($this->private_key) ? trim($this->private_key) : ''),
-            'PAYDUNYA-TOKEN: ' . (is_string($this->token) ? trim($this->token) : ''),
+            'PAYDUNYA-MASTER-KEY: ' . $master_key_clean,
+            'PAYDUNYA-PUBLIC-KEY: ' . $public_key_clean,
+            'PAYDUNYA-PRIVATE-KEY: ' . $private_key_clean,
+            'PAYDUNYA-TOKEN: ' . $token_clean,
             'Content-Type: application/json',
             'Accept: application/json'
         ];

@@ -31,7 +31,7 @@ $smtp_config = [
     'host' => 'smtp.gmail.com',
     'port' => 587,
     'username' => 'methndiaye43@gmail.com',
-    'password' => 'ccsf pihw falx zbnu',
+    'password' => 'elaf cmwo iahy gghs',
     'from_email' => 'methndiaye43@gmail.com',
     'from_name' => 'SchoolManager'
 ];

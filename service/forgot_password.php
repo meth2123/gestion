@@ -6,7 +6,7 @@ $smtp_config = [
     'host' => 'smtp.gmail.com',
     'port' => 587,
     'username' => 'methndiaye43@gmail.com',  // Votre email Gmail
-    'password' => 'ccsf pihw falx zbnu',     // Votre mot de passe d'application
+    'password' => 'elaf cmwo iahy gghs',     // Votre mot de passe d'application
     'from_email' => 'methndiaye43@gmail.com', // Même email que username
     'from_name' => 'Système de Gestion Scolaire'
 ];
