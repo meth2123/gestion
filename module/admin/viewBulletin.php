@@ -96,17 +96,18 @@ if ($check_table) {
 // Supprimer la requête des absences et les statistiques
 $query = "
 SELECT 
-    DATE_FORMAT(a.date, '%d/%m/%Y') as date,
-    TIME(a.date) as course_time,
+    DATE_FORMAT(a.datetime, '%d/%m/%Y') as date,
+    TIME(a.datetime) as course_time,
     c.name as course_name,
     t.name as teacher_name,
-    'present' as status
+    a.status
 FROM attendance a
-JOIN student_teacher_course stc ON a.attendedid = stc.student_id COLLATE utf8mb4_general_ci
-JOIN course c ON stc.course_id = c.id COLLATE utf8mb4_general_ci
-JOIN teachers t ON stc.teacher_id = t.id COLLATE utf8mb4_general_ci
-WHERE stc.student_id = ? COLLATE utf8mb4_general_ci
-ORDER BY a.date DESC, TIME(a.date) ASC";
+JOIN student_teacher_course stc ON CAST(a.attendedid AS CHAR) = CAST(stc.student_id AS CHAR)
+JOIN course c ON stc.course_id = c.id
+JOIN teachers t ON CAST(stc.teacher_id AS CHAR) = CAST(t.id AS CHAR)
+WHERE CAST(stc.student_id AS CHAR) = CAST(? AS CHAR)
+AND a.person_type = 'student'
+ORDER BY a.datetime DESC, TIME(a.datetime) ASC";
 
 $stmt = $conn->prepare($query);
 $stmt->bind_param("s", $student_id);
@@ -134,11 +135,12 @@ $courses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 // Supprimer la boucle de calcul des absences
 foreach ($courses as $course) {
     $absence_query = "
-    SELECT DATE(a.date) as date
+    SELECT DATE(a.datetime) as date
     FROM attendance a
-    WHERE a.attendedid = ?
-    AND DATE(a.date) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    AND DATE(a.date) <= CURDATE()";
+    WHERE CAST(a.attendedid AS CHAR) = CAST(? AS CHAR)
+    AND a.person_type = 'student'
+    AND DATE(a.datetime) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    AND DATE(a.datetime) <= CURDATE()";
     
     $stmt = $conn->prepare($absence_query);
     $stmt->bind_param("s", $student_id);

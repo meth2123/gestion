@@ -7,10 +7,28 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$teacher_id = $_SESSION['teacher_id'] ?? $_SESSION['login_id'] ?? null;
+// Récupérer teacher_id depuis la session
+$teacher_id = null;
+if (isset($_SESSION['teacher_id']) && !empty($_SESSION['teacher_id'])) {
+    $teacher_id = $_SESSION['teacher_id'];
+} elseif (isset($_SESSION['login_id']) && !empty($_SESSION['login_id'])) {
+    // Si login_id existe, vérifier si c'est un teacher
+    $check_teacher = "SELECT id FROM teachers WHERE CAST(id AS CHAR) = CAST(? AS CHAR) LIMIT 1";
+    $check_stmt = $link->prepare($check_teacher);
+    if ($check_stmt) {
+        $check_stmt->bind_param("s", $_SESSION['login_id']);
+        $check_stmt->execute();
+        $result = $check_stmt->get_result();
+        if ($result && $result->num_rows > 0) {
+            $teacher_id = $_SESSION['login_id'];
+            $_SESSION['teacher_id'] = $teacher_id; // Mettre à jour la session
+        }
+        $check_stmt->close();
+    }
+}
 
 if (!$teacher_id) {
-    header("Location: ../../index.php");
+    header("Location: ../../index.php?error=" . urlencode("Session expirée. Veuillez vous reconnecter."));
     exit;
 }
 
@@ -61,8 +79,21 @@ $datetime = $date . ' ' . $default_time;
 $success_count = 0;
 $error_count = 0;
 
+// Debug: Afficher les statuts reçus
+error_log("Statuts reçus: " . print_r($statuses, true));
+
 // Enregistrer les présences
 foreach ($statuses as $student_id => $status) {
+    // Nettoyer et valider le statut
+    $original_status = $status;
+    $status = trim(strtolower($status));
+    $valid_statuses = ['present', 'absent', 'late', 'excused'];
+    if (!in_array($status, $valid_statuses)) {
+        error_log("Statut invalide reçu: '$original_status' (nettoyé: '$status') pour l'élève $student_id, utilisation de 'present' par défaut");
+        $status = 'present';
+    } else {
+        error_log("Statut valide pour l'élève $student_id: '$status'");
+    }
     // Vérifier que l'élève appartient bien à ce cours et cette classe
     $check_student_sql = "SELECT 1 FROM student_teacher_course 
                          WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
@@ -94,7 +125,16 @@ foreach ($statuses as $student_id => $status) {
     
     if ($attendance_result->num_rows > 0) {
         // Mettre à jour la présence existante
-        $comment = isset($comments[$student_id]) ? $comments[$student_id] : null;
+        $comment = isset($comments[$student_id]) ? trim($comments[$student_id]) : null;
+        if (empty($comment)) {
+            $comment = null;
+        }
+        // Valider le statut
+        $valid_statuses = ['present', 'absent', 'late', 'excused'];
+        if (!in_array($status, $valid_statuses)) {
+            $status = 'present'; // Valeur par défaut si invalide
+        }
+        
         $update_sql = "UPDATE student_attendance 
                        SET status = ?, comment = ?, updated_at = NOW()
                        WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
@@ -104,25 +144,43 @@ foreach ($statuses as $student_id => $status) {
         $update_stmt = $link->prepare($update_sql);
         $update_stmt->bind_param("sssiss", $status, $comment, $student_id, $course_id, $datetime, $datetime);
         
+        error_log("Mise à jour présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
+        
         if ($update_stmt->execute()) {
             $success_count++;
+            error_log("Présence mise à jour avec succès pour l'élève $student_id avec le statut '$status'");
         } else {
             $error_count++;
+            error_log("Erreur lors de la mise à jour de la présence pour l'élève $student_id: " . $update_stmt->error);
         }
         $update_stmt->close();
     } else {
         // Insérer la nouvelle présence
-        $comment = isset($comments[$student_id]) ? $comments[$student_id] : null;
+        $comment = isset($comments[$student_id]) ? trim($comments[$student_id]) : null;
+        if (empty($comment)) {
+            $comment = null;
+        }
+        // Valider le statut
+        $valid_statuses = ['present', 'absent', 'late', 'excused'];
+        if (!in_array($status, $valid_statuses)) {
+            $status = 'present'; // Valeur par défaut si invalide
+        }
+        
         $insert_sql = "INSERT INTO student_attendance 
                       (student_id, course_id, class_id, datetime, status, comment, created_by) 
                       VALUES (?, ?, ?, ?, ?, ?, ?)";
         $insert_stmt = $link->prepare($insert_sql);
+        // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (teacher_id)
         $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $teacher_id);
+        
+        error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
         
         if ($insert_stmt->execute()) {
             $success_count++;
+            error_log("Présence insérée avec succès pour l'élève $student_id avec le statut '$status'");
         } else {
             $error_count++;
+            error_log("Erreur lors de l'insertion de la présence pour l'élève $student_id: " . $insert_stmt->error);
         }
         $insert_stmt->close();
     }

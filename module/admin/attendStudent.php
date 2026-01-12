@@ -33,11 +33,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $verify_stmt->close();
     
-    // Enregistrer les présences
-    foreach ($students as $student_id) {
+    // Debug: Afficher les statuts reçus
+    error_log("Admin - Statuts reçus: " . print_r($statuses, true));
+    error_log("Admin - Élèves cochés: " . print_r($students, true));
+    
+    // Enregistrer les présences pour tous les élèves qui ont un statut défini
+    // Utiliser $statuses comme source principale (tous les élèves avec un statut)
+    $students_to_process = !empty($statuses) ? array_keys($statuses) : $students;
+    
+    foreach ($students_to_process as $student_id) {
+        // Récupérer et valider le statut
+        $status = isset($statuses[$student_id]) ? trim(strtolower($statuses[$student_id])) : 'present';
+        $valid_statuses = ['present', 'absent', 'late', 'excused'];
+        if (!in_array($status, $valid_statuses)) {
+            error_log("Statut invalide reçu: '$status' pour l'élève $student_id, utilisation de 'present' par défaut");
+            $status = 'present';
+        }
+        
         // Vérifier que l'élève appartient à cet admin
         $check_student_sql = "SELECT id FROM students 
-                             WHERE id = ? 
+                             WHERE CAST(id AS CHAR) = CAST(? AS CHAR)
                              AND CAST(created_by AS CHAR) = CAST(? AS CHAR)
                              AND CAST(classid AS CHAR) = CAST(? AS CHAR)";
         $check_stmt = $link->prepare($check_student_sql);
@@ -46,7 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $student_result = $check_stmt->get_result();
         
         if ($student_result->num_rows === 0) {
+            error_log("Admin - Élève $student_id non autorisé ou non trouvé");
             $error_count++;
+            $check_stmt->close();
             continue;
         }
         $check_stmt->close();
@@ -63,15 +80,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $attendance_result = $check_stmt->get_result();
         
         if ($attendance_result->num_rows > 0) {
-            $error_count++;
+            // Mettre à jour la présence existante
+            $existing = $attendance_result->fetch_assoc();
+            $update_sql = "UPDATE student_attendance 
+                          SET status = ?, updated_at = NOW()
+                          WHERE id = ?";
+            $update_stmt = $link->prepare($update_sql);
+            $update_stmt->bind_param("si", $status, $existing['id']);
+            
+            error_log("Admin - Mise à jour présence - Élève: $student_id, Cours: $course_id, Statut: $status");
+            
+            if ($update_stmt->execute()) {
+                $success_count++;
+                error_log("Présence mise à jour avec succès pour l'élève $student_id avec le statut '$status'");
+            } else {
+                $error_count++;
+                error_log("Erreur lors de la mise à jour de la présence pour l'élève $student_id: " . $update_stmt->error);
+            }
+            $update_stmt->close();
+            $check_stmt->close();
             continue;
         }
         $check_stmt->close();
         
-        // Récupérer le statut (par défaut 'present')
-        $status = isset($statuses[$student_id]) ? $statuses[$student_id] : 'present';
+        error_log("Admin - Insertion présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
         
-        // Insérer la présence
+        // Insérer la nouvelle présence
         $insert_sql = "INSERT INTO student_attendance 
                       (student_id, course_id, class_id, datetime, status, created_by) 
                       VALUES (?, ?, ?, ?, ?, ?)";
@@ -80,8 +114,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($insert_stmt->execute()) {
             $success_count++;
+            error_log("Présence insérée avec succès pour l'élève $student_id avec le statut '$status'");
         } else {
             $error_count++;
+            error_log("Erreur lors de l'insertion de la présence pour l'élève $student_id: " . $insert_stmt->error);
         }
         $insert_stmt->close();
     }

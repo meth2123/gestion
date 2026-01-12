@@ -164,23 +164,40 @@ try {
     $drop_table = "DROP TABLE IF EXISTS student_attendance";
     $conn->query($drop_table);
     
-    // Vérifier le type de la colonne id dans la table class
-    $check_class = "SHOW COLUMNS FROM class WHERE Field = 'id'";
+    // Vérifier le type, charset et collation de la colonne id dans la table class
+    $check_class = "SHOW FULL COLUMNS FROM class WHERE Field = 'id'";
     $class_result = $conn->query($check_class);
     $class_type = "VARCHAR(20)";
+    $class_charset = "utf8mb4";
+    $class_collation = "utf8mb4_unicode_ci";
     if ($class_result && $class_result->num_rows > 0) {
         $class_row = $class_result->fetch_assoc();
         $class_type = $class_row['Type'];
+        if (isset($class_row['Collation']) && !empty($class_row['Collation']) && $class_row['Collation'] !== 'NULL') {
+            // Extraire charset et collation (ex: utf8mb3_general_ci -> charset: utf8mb3, collation: utf8mb3_general_ci)
+            $collation_parts = explode('_', $class_row['Collation']);
+            $class_charset = $collation_parts[0];
+            $class_collation = $class_row['Collation'];
+        }
     }
+    echo "<li>ℹ️ Type détecté pour class.id: $class_type, Charset: $class_charset, Collation: $class_collation</li>";
     
-    // Vérifier le type de la colonne id dans la table students
-    $check_students = "SHOW COLUMNS FROM students WHERE Field = 'id'";
+    // Vérifier le type, charset et collation de la colonne id dans la table students
+    $check_students = "SHOW FULL COLUMNS FROM students WHERE Field = 'id'";
     $students_result = $conn->query($check_students);
     $students_type = "VARCHAR(20)";
+    $students_charset = "utf8mb4";
+    $students_collation = "utf8mb4_unicode_ci";
     if ($students_result && $students_result->num_rows > 0) {
         $students_row = $students_result->fetch_assoc();
         $students_type = $students_row['Type'];
+        if (isset($students_row['Collation']) && !empty($students_row['Collation']) && $students_row['Collation'] !== 'NULL') {
+            $collation_parts = explode('_', $students_row['Collation']);
+            $students_charset = $collation_parts[0];
+            $students_collation = $students_row['Collation'];
+        }
     }
+    echo "<li>ℹ️ Type détecté pour students.id: $students_type, Charset: $students_charset, Collation: $students_collation</li>";
     
     // Extraire la longueur du VARCHAR si nécessaire
     preg_match('/varchar\((\d+)\)/i', $class_type, $class_matches);
@@ -189,12 +206,26 @@ try {
     preg_match('/varchar\((\d+)\)/i', $students_type, $students_matches);
     $students_length = isset($students_matches[1]) ? $students_matches[1] : 20;
     
+    // Construire les définitions de colonnes avec charset et collation
+    // Si charset/collation est détecté, l'utiliser, sinon utiliser les valeurs par défaut
+    if ($class_charset && $class_collation) {
+        $class_id_def = "VARCHAR($class_length) CHARACTER SET $class_charset COLLATE $class_collation NOT NULL";
+    } else {
+        $class_id_def = "VARCHAR($class_length) NOT NULL";
+    }
+    
+    if ($students_charset && $students_collation) {
+        $student_id_def = "VARCHAR($students_length) CHARACTER SET $students_charset COLLATE $students_collation NOT NULL";
+    } else {
+        $student_id_def = "VARCHAR($students_length) NOT NULL";
+    }
+    
     $create_student_attendance = "
     CREATE TABLE student_attendance (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        student_id VARCHAR($students_length) NOT NULL,
+        student_id $student_id_def,
         course_id INT NOT NULL,
-        class_id VARCHAR($class_length) NOT NULL,
+        class_id $class_id_def,
         datetime DATETIME NOT NULL,
         status ENUM('present', 'absent', 'late', 'excused') NOT NULL DEFAULT 'present',
         comment TEXT NULL,

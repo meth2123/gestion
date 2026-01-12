@@ -3,10 +3,28 @@ include_once('main.php');
 include_once('../../service/mysqlcon.php');
 include_once('../../service/db_utils.php');
 
-$teacher_id = $_SESSION['teacher_id'] ?? $_SESSION['login_id'] ?? null;
+// Récupérer teacher_id depuis la session
+$teacher_id = null;
+if (isset($_SESSION['teacher_id']) && !empty($_SESSION['teacher_id'])) {
+    $teacher_id = $_SESSION['teacher_id'];
+} elseif (isset($_SESSION['login_id']) && !empty($_SESSION['login_id'])) {
+    // Si login_id existe, vérifier si c'est un teacher
+    $check_teacher = "SELECT id FROM teachers WHERE CAST(id AS CHAR) = CAST(? AS CHAR) LIMIT 1";
+    $check_stmt = $link->prepare($check_teacher);
+    if ($check_stmt) {
+        $check_stmt->bind_param("s", $_SESSION['login_id']);
+        $check_stmt->execute();
+        $result = $check_stmt->get_result();
+        if ($result && $result->num_rows > 0) {
+            $teacher_id = $_SESSION['login_id'];
+            $_SESSION['teacher_id'] = $teacher_id; // Mettre à jour la session
+        }
+        $check_stmt->close();
+    }
+}
 
 if (!$teacher_id) {
-    header("Location: ../../index.php");
+    header("Location: ../../index.php?error=" . urlencode("Session expirée. Veuillez vous reconnecter."));
     exit();
 }
 
