@@ -23,7 +23,7 @@ $student_info = db_fetch_row(
 
 if (!$student_info) {
     header("Location: index.php?error=student_not_found");
-    exit();
+exit();
 }
 
 $class_id = $student_info['classid'];
@@ -38,7 +38,7 @@ $query = "SELECT sa.*, c.name as course_name, cl.name as class_name, t.name as t
           FROM student_attendance sa
           LEFT JOIN course c ON sa.course_id = c.id
           LEFT JOIN class cl ON sa.class_id = cl.id
-          LEFT JOIN teachers t ON sa.teacher_id = t.id
+          LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
           WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)";
 
 $params = [$student_id];
