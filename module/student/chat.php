@@ -34,6 +34,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $has_attachment = !empty($_FILES['attachment']['name']);
     
     if ($room_id && ($message || $has_attachment)) {
+        // Vérifier que le salon appartient bien à la classe de l'étudiant (sécurité)
+        $room_check = db_fetch_row(
+            "SELECT r.id FROM chat_rooms r 
+             WHERE r.id = ? AND CAST(r.class_id AS CHAR) = CAST(? AS CHAR) AND r.is_class_room = 1",
+            [$room_id, $class_id],
+            'is'
+        );
+        
+        if (!$room_check) {
+            header("Location: chat.php?error=unauthorized_room");
+            exit();
+        }
+        
         // Vérifier si l'étudiant est un participant de ce salon
         $is_participant = db_fetch_row(
             "SELECT * FROM chat_participants WHERE room_id = ? AND user_id = ? AND user_type = 'student'",
@@ -111,7 +124,7 @@ $active_room_id = $_GET['room'] ?? null;
 // Si aucun salon n'est sélectionné, récupérer le salon de la classe de l'étudiant
 if (!$active_room_id && $class_id) {
     $class_room = db_fetch_row(
-        "SELECT id FROM chat_rooms WHERE class_id = ? AND is_class_room = 1",
+        "SELECT id FROM chat_rooms WHERE CAST(class_id AS CHAR) = CAST(? AS CHAR) AND is_class_room = 1",
         [$class_id],
         's'
     );
@@ -122,12 +135,13 @@ if (!$active_room_id && $class_id) {
 }
 
 // Récupération des salons disponibles pour l'étudiant
+// Un étudiant ne peut voir QUE le salon de sa classe (sécurité)
 $available_rooms = db_fetch_all(
     "SELECT r.* FROM chat_rooms r 
-     WHERE r.class_id = ? OR r.id IN (SELECT room_id FROM chat_participants WHERE user_id = ? AND user_type = 'student')
+     WHERE CAST(r.class_id AS CHAR) = CAST(? AS CHAR) AND r.is_class_room = 1
      ORDER BY r.is_class_room DESC, r.name ASC",
-    [$class_id, $student_id],
-    'ss'
+    [$class_id],
+    's'
 );
 
 // Récupération des messages du salon actif
@@ -170,6 +184,31 @@ if ($active_room_id) {
     
     // Convertir le tableau associatif en tableau indexé pour l'affichage
     $messages = array_values($messages);
+    
+    // Vérifier que le salon actif appartient bien à la classe de l'étudiant (sécurité)
+    $room_check = db_fetch_row(
+        "SELECT r.id FROM chat_rooms r 
+         WHERE r.id = ? AND CAST(r.class_id AS CHAR) = CAST(? AS CHAR) AND r.is_class_room = 1",
+        [$active_room_id, $class_id],
+        'is'
+    );
+    
+    if (!$room_check) {
+        // Le salon n'appartient pas à la classe de l'étudiant, rediriger vers le salon de sa classe
+        if ($class_id) {
+            $class_room = db_fetch_row(
+                "SELECT id FROM chat_rooms WHERE CAST(class_id AS CHAR) = CAST(? AS CHAR) AND is_class_room = 1",
+                [$class_id],
+                's'
+            );
+            if ($class_room) {
+                header("Location: chat.php?room=" . $class_room['id']);
+                exit();
+            }
+        }
+        header("Location: chat.php?error=unauthorized_room");
+        exit();
+    }
     
     // Ajouter l'étudiant comme participant s'il ne l'est pas déjà
     $is_participant = db_fetch_row(
@@ -238,6 +277,8 @@ ob_start();
                     echo "Le message que vous essayez de supprimer n'existe pas.";
                 } elseif ($error === 'delete_failed') {
                     echo "La suppression du message a échoué. Veuillez réessayer.";
+                } elseif ($error === 'unauthorized_room') {
+                    echo "Vous n'avez pas accès à ce salon de discussion. Vous avez été redirigé vers le salon de votre classe.";
                 } else {
                     echo "Une erreur s'est produite. Veuillez réessayer.";
                 }
