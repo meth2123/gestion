@@ -160,12 +160,41 @@ try {
     }
     
     // 7. Créer la table student_attendance pour les élèves
+    // D'abord, supprimer la table si elle existe pour éviter les erreurs de clé étrangère
+    $drop_table = "DROP TABLE IF EXISTS student_attendance";
+    $conn->query($drop_table);
+    
+    // Vérifier le type de la colonne id dans la table class
+    $check_class = "SHOW COLUMNS FROM class WHERE Field = 'id'";
+    $class_result = $conn->query($check_class);
+    $class_type = "VARCHAR(20)";
+    if ($class_result && $class_result->num_rows > 0) {
+        $class_row = $class_result->fetch_assoc();
+        $class_type = $class_row['Type'];
+    }
+    
+    // Vérifier le type de la colonne id dans la table students
+    $check_students = "SHOW COLUMNS FROM students WHERE Field = 'id'";
+    $students_result = $conn->query($check_students);
+    $students_type = "VARCHAR(20)";
+    if ($students_result && $students_result->num_rows > 0) {
+        $students_row = $students_result->fetch_assoc();
+        $students_type = $students_row['Type'];
+    }
+    
+    // Extraire la longueur du VARCHAR si nécessaire
+    preg_match('/varchar\((\d+)\)/i', $class_type, $class_matches);
+    $class_length = isset($class_matches[1]) ? $class_matches[1] : 20;
+    
+    preg_match('/varchar\((\d+)\)/i', $students_type, $students_matches);
+    $students_length = isset($students_matches[1]) ? $students_matches[1] : 20;
+    
     $create_student_attendance = "
-    CREATE TABLE IF NOT EXISTS student_attendance (
+    CREATE TABLE student_attendance (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        student_id VARCHAR(20) NOT NULL,
+        student_id VARCHAR($students_length) NOT NULL,
         course_id INT NOT NULL,
-        class_id VARCHAR(20) NOT NULL,
+        class_id VARCHAR($class_length) NOT NULL,
         datetime DATETIME NOT NULL,
         status ENUM('present', 'absent', 'late', 'excused') NOT NULL DEFAULT 'present',
         comment TEXT NULL,
@@ -176,21 +205,41 @@ try {
         INDEX idx_course (course_id),
         INDEX idx_class (class_id),
         INDEX idx_datetime (datetime),
-        INDEX idx_student_course_date (student_id, course_id, datetime),
-        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-        FOREIGN KEY (course_id) REFERENCES course(id) ON DELETE CASCADE,
-        FOREIGN KEY (class_id) REFERENCES class(id) ON DELETE CASCADE
+        INDEX idx_student_course_date (student_id, course_id, datetime)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
     
     if ($conn->query($create_student_attendance)) {
         echo "<li>✅ Table student_attendance créée avec succès</li>";
-    } else {
-        // Si la table existe déjà, vérifier les colonnes
-        if (strpos($conn->error, 'already exists') === false) {
-            throw new Exception("Erreur lors de la création de student_attendance: " . $conn->error);
+        
+        // Ajouter les clés étrangères séparément pour mieux gérer les erreurs
+        $fk_student = "ALTER TABLE student_attendance 
+                      ADD CONSTRAINT fk_student_attendance_student 
+                      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE";
+        if ($conn->query($fk_student)) {
+            echo "<li>✅ Clé étrangère student_id ajoutée</li>";
         } else {
-            echo "<li>ℹ️ Table student_attendance existe déjà</li>";
+            echo "<li>⚠️ Clé étrangère student_id non ajoutée: " . $conn->error . "</li>";
         }
+        
+        $fk_course = "ALTER TABLE student_attendance 
+                     ADD CONSTRAINT fk_student_attendance_course 
+                     FOREIGN KEY (course_id) REFERENCES course(id) ON DELETE CASCADE";
+        if ($conn->query($fk_course)) {
+            echo "<li>✅ Clé étrangère course_id ajoutée</li>";
+        } else {
+            echo "<li>⚠️ Clé étrangère course_id non ajoutée: " . $conn->error . "</li>";
+        }
+        
+        $fk_class = "ALTER TABLE student_attendance 
+                    ADD CONSTRAINT fk_student_attendance_class 
+                    FOREIGN KEY (class_id) REFERENCES class(id) ON DELETE CASCADE";
+        if ($conn->query($fk_class)) {
+            echo "<li>✅ Clé étrangère class_id ajoutée</li>";
+        } else {
+            echo "<li>⚠️ Clé étrangère class_id non ajoutée: " . $conn->error . "</li>";
+        }
+    } else {
+        throw new Exception("Erreur lors de la création de student_attendance: " . $conn->error);
     }
     
     // 8. Ajouter un index unique pour éviter les doublons (personne + cours + date/heure)

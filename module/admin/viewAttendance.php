@@ -51,20 +51,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['justify'])) {
     
     if ($student_id && $date && $course_time) {
         // Vérifier si une entrée existe déjà
-        $check_query = "SELECT id FROM attendance WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR) AND DATE(date) = ? AND TIME(date) = ?";
+        $check_query = "SELECT id FROM attendance WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR) AND DATE(datetime) = ? AND TIME(datetime) = ?";
         $existing = db_fetch_row($check_query, [$student_id, $date, $course_time], 'sss');
         
         // Obtenir l'heure actuelle au format HH:MM:SS
         $current_time = date('H:i:s');
+        $datetime = $date . ' ' . $current_time;
         
         if ($existing) {
             // Mettre à jour l'entrée existante avec l'heure actuelle
-            $update_query = "UPDATE attendance SET date = CONCAT(?, ' ', ?) WHERE CAST(id AS CHAR) = CAST(? AS CHAR)";
-            db_execute($update_query, [$date, $current_time, $existing['id']], 'sss');
+            $update_query = "UPDATE attendance SET datetime = ? WHERE CAST(id AS CHAR) = CAST(? AS CHAR)";
+            db_execute($update_query, [$datetime, $existing['id']], 'ss');
         } else {
             // Créer une nouvelle entrée avec l'heure actuelle
-            $insert_query = "INSERT INTO attendance (date, attendedid) VALUES (CONCAT(?, ' ', ?), ?)";
-            db_execute($insert_query, [$date, $current_time, $student_id], 'sss');
+            $insert_query = "INSERT INTO attendance (datetime, attendedid, person_type, status) VALUES (?, ?, 'student', 'present')";
+            db_execute($insert_query, [$datetime, $student_id], 'ss');
         }
         
         // Rediriger pour éviter la soumission multiple

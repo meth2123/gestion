@@ -68,8 +68,8 @@ if (!$current_month_data) {
     $attendance_query = "SELECT COUNT(*) as present_days 
                          FROM attendance 
                          WHERE CONVERT(attendedid USING utf8mb4) = CONVERT(? USING utf8mb4) 
-                         AND MONTH(date) = ? 
-                         AND YEAR(date) = ?";
+                         AND MONTH(datetime) = ? 
+                         AND YEAR(datetime) = ?";
     
     $attendance_data = db_fetch_row($attendance_query, [$teacher_id, $current_month_int, $current_year], 'sis');
     

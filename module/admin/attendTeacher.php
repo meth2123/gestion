@@ -62,16 +62,21 @@ if (isset($_POST['ajax']) && $_POST['ajax'] == 1) {
             $check_stmt->close();
             
             // Insérer la nouvelle présence
-            $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
-                    VALUES (?, ?, 'teacher', ?, ?, 'present', ?)";
-            $stmt = $link->prepare($sql);
-            
             if ($course_id && $time_slot_id) {
+                $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                        VALUES (?, ?, 'teacher', ?, ?, 'present', ?)";
+                $stmt = $link->prepare($sql);
                 $stmt->bind_param("ssiis", $datetime, $teacher_id, $course_id, $time_slot_id, $admin_id);
             } elseif ($course_id) {
-                $stmt->bind_param("ssiss", $datetime, $teacher_id, $course_id, $admin_id);
+                $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                        VALUES (?, ?, 'teacher', ?, NULL, 'present', ?)";
+                $stmt = $link->prepare($sql);
+                $stmt->bind_param("ssis", $datetime, $teacher_id, $course_id, $admin_id);
             } else {
-                $stmt->bind_param("ssss", $datetime, $teacher_id, $admin_id);
+                $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                        VALUES (?, ?, 'teacher', NULL, NULL, 'present', ?)";
+                $stmt = $link->prepare($sql);
+                $stmt->bind_param("sss", $datetime, $teacher_id, $admin_id);
             }
             
             if ($stmt->execute()) {
@@ -173,16 +178,21 @@ if (isset($_POST['teacher_id']) && isset($_POST['status'])) {
         $check_stmt->close();
         
         // Insérer la nouvelle présence
-        $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
-                VALUES (?, ?, 'teacher', ?, ?, 'present', ?)";
-        $stmt = $link->prepare($sql);
-        
         if ($course_id && $time_slot_id) {
+            $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                    VALUES (?, ?, 'teacher', ?, ?, 'present', ?)";
+            $stmt = $link->prepare($sql);
             $stmt->bind_param("ssiis", $datetime, $teacher_id, $course_id, $time_slot_id, $admin_id);
         } elseif ($course_id) {
-            $stmt->bind_param("ssiss", $datetime, $teacher_id, $course_id, $admin_id);
+            $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                    VALUES (?, ?, 'teacher', ?, NULL, 'present', ?)";
+            $stmt = $link->prepare($sql);
+            $stmt->bind_param("ssis", $datetime, $teacher_id, $course_id, $admin_id);
         } else {
-            $stmt->bind_param("ssss", $datetime, $teacher_id, $admin_id);
+            $sql = "INSERT INTO attendance (datetime, attendedid, person_type, course_id, time_slot_id, status, created_by) 
+                    VALUES (?, ?, 'teacher', NULL, NULL, 'present', ?)";
+            $stmt = $link->prepare($sql);
+            $stmt->bind_param("sss", $datetime, $teacher_id, $admin_id);
         }
         
         if ($stmt->execute()) {

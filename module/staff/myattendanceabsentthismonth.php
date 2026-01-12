@@ -2,22 +2,18 @@
 include_once('main.php');
 include_once('../../service/db_utils.php');
 
-// Récupération des absences du mois en cours
+// Récupération des absences du mois en cours (utiliser status='absent' dans attendance)
 $absences = db_fetch_all(
-    "SELECT DISTINCT DATE_FORMAT(date, '%d/%m/%Y') as formatted_date 
+    "SELECT DISTINCT DATE_FORMAT(datetime, '%d/%m/%Y') as formatted_date 
      FROM attendance 
-     WHERE MONTH(date) = MONTH(CURRENT_DATE) 
-     AND YEAR(date) = YEAR(CURRENT_DATE)
-     AND date NOT IN (
-         SELECT DISTINCT(date) 
-         FROM attendance 
-         WHERE attendedid = ? 
-         AND MONTH(date) = MONTH(CURRENT_DATE) 
-         AND YEAR(date) = YEAR(CURRENT_DATE)
-     )
-     ORDER BY date DESC",
+     WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+     AND person_type = 'staff'
+     AND status IN ('absent', 'late')
+     AND MONTH(datetime) = MONTH(CURRENT_DATE) 
+     AND YEAR(datetime) = YEAR(CURRENT_DATE)
+     ORDER BY datetime DESC",
     [$check],
-    'i'
+    's'
 );
 
 if (empty($absences)) {

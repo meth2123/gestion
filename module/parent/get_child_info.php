@@ -33,7 +33,7 @@ if (!$child) {
 
 // Calcul du taux de présence
 $total_school_days = db_fetch_row(
-    "SELECT COUNT(DISTINCT date) as total FROM attendance",
+    "SELECT COUNT(DISTINCT DATE(datetime)) as total FROM attendance WHERE person_type = 'student' OR person_type IS NULL",
     []
 );
 

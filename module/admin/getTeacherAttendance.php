@@ -30,12 +30,13 @@ if ($check_result->num_rows === 0) {
 }
 
 // Récupérer les présences du mois courant
-$present_sql = "SELECT DATE_FORMAT(date, '%d/%m/%Y') as formatted_date 
+$present_sql = "SELECT DATE_FORMAT(datetime, '%d/%m/%Y') as formatted_date 
                 FROM attendance 
-                WHERE attendedid = ? 
-                AND MONTH(date) = MONTH(CURDATE()) 
-                AND YEAR(date) = YEAR(CURDATE())
-                ORDER BY date DESC";
+                WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+                AND person_type = 'teacher'
+                AND MONTH(datetime) = MONTH(CURDATE()) 
+                AND YEAR(datetime) = YEAR(CURDATE())
+                ORDER BY datetime DESC";
 
 $present_stmt = $link->prepare($present_sql);
 $present_stmt->bind_param("s", $teaid);

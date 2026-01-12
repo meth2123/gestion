@@ -49,16 +49,27 @@ if ($selected_class && $selected_course) {
 
 // Fonction pour vérifier si une présence existe déjà
 function checkStudentAttendanceExists($link, $student_id, $course_id, $datetime) {
+    // Vérifier si la table existe
+    $table_check = $link->query("SHOW TABLES LIKE 'student_attendance'");
+    if (!$table_check || $table_check->num_rows == 0) {
+        return false; // Table n'existe pas encore
+    }
+    
     $check_sql = "SELECT id FROM student_attendance 
                   WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
                   AND course_id = ?
                   AND DATE(datetime) = DATE(?)
                   AND TIME(datetime) = TIME(?)";
     $stmt = $link->prepare($check_sql);
+    if (!$stmt) {
+        return false; // Erreur de préparation
+    }
     $stmt->bind_param("siss", $student_id, $course_id, $datetime, $datetime);
     $stmt->execute();
     $result = $stmt->get_result();
-    return $result->num_rows > 0;
+    $exists = $result->num_rows > 0;
+    $stmt->close();
+    return $exists;
 }
 
 ob_start();

@@ -51,13 +51,14 @@ try {
     }
 
     // Get present dates for the current month
-    $query = "SELECT date, 'Present' as status 
+    $query = "SELECT DATE(datetime) as date, 'Present' as status 
               FROM attendance 
-              WHERE attendedid = ? 
+              WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+              AND person_type = 'staff'
               AND created_by = ?
-              AND MONTH(date) = MONTH(CURRENT_DATE()) 
-              AND YEAR(date) = YEAR(CURRENT_DATE())
-              ORDER BY date DESC";
+              AND MONTH(datetime) = MONTH(CURRENT_DATE()) 
+              AND YEAR(datetime) = YEAR(CURRENT_DATE())
+              ORDER BY datetime DESC";
               
     $stmt = $conn->prepare($query);
     if (!$stmt) {

@@ -47,13 +47,20 @@ include('main.php');
 			 //print_r($_REQUEST);
 			 $s=$_REQUEST['stdid'];
 			$d= $_REQUEST['date'];
-			$sql="DELETE FROM attendance WHERE attendedid='$s' and date='$d'";
-			$s=mysql_query($sql);
-			if(!$s)
-			{
-			echo "problem";
+			$sql="DELETE FROM attendance WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR) AND DATE(datetime) = ?";
+			$stmt = $link->prepare($sql);
+			if ($stmt) {
+				$stmt->bind_param("ss", $s, $d);
+				$stmt->execute();
+				if($stmt->affected_rows > 0) {
+					echo "success";
+				} else {
+					echo "Aucune ligne supprimée";
+				}
+				$stmt->close();
+			} else {
+				echo "Erreur de préparation: " . $link->error;
 			}
-			echo "success";
 			 }
 			?>
 			

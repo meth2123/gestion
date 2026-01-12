@@ -1,12 +1,30 @@
 <?php  
 include_once('../../service/mysqlcon.php');
-$check=$_REQUEST['classid'];
-$attendmon = "SELECT DISTINCT (date) FROM attendance WHERE  date not in (select DISTINCT(date) from attendance where attendedid='$check' )";
-$resmon = mysql_query($attendmon);
-echo "<tr> <th>Absent All Dates:</th></tr>";
-while($r=mysql_fetch_array($resmon))
-{
- echo "<tr><<td>",$r['date'],"</td></tr>";
+$check = $_REQUEST['classid'] ?? '';
 
+if (empty($check)) {
+    echo "<tr><td>Erreur: ID de classe manquant</td></tr>";
+    exit();
 }
+
+// Utiliser la nouvelle table student_attendance pour les absences
+$attendmon = "SELECT DISTINCT DATE(datetime) as date 
+              FROM student_attendance 
+              WHERE CAST(class_id AS CHAR) = CAST(? AS CHAR)
+              AND status IN ('absent', 'late')
+              ORDER BY datetime DESC";
+$stmt = $link->prepare($attendmon);
+$stmt->bind_param("s", $check);
+$stmt->execute();
+$resmon = $stmt->get_result();
+
+echo "<tr><th>Dates d'absence (toutes):</th></tr>";
+if ($resmon->num_rows > 0) {
+    while($r = $resmon->fetch_assoc()) {
+        echo "<tr><td>" . htmlspecialchars($r['date']) . "</td></tr>";
+    }
+} else {
+    echo "<tr><td>Aucune absence enregistrée</td></tr>";
+}
+$stmt->close();
 ?>

@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_attendance'])) {
         if ($check_result) {
             // Supprimer les anciennes présences pour cette date et ce cours
             $delete_query = "DELETE FROM attendance 
-                           WHERE DATE(date) = ? 
+                           WHERE DATE(datetime) = ? 
                            AND TIME(date) = ? 
                            AND attendedid IN (
                                SELECT student_id 

@@ -31,41 +31,38 @@ if (empty($action) || empty($student_id)) {
 // Traitement des différentes actions
 switch ($action) {
     case 'get_presence':
-        $query = "SELECT a.date, c.name as course_name
-                 FROM attendance a
-                 INNER JOIN course c ON c.studentid = a.attendedid
-                 WHERE a.attendedid = ?";
+        // Utiliser la table student_attendance pour les élèves
+        $query = "SELECT sa.datetime, c.name as course_name, sa.status
+                 FROM student_attendance sa
+                 INNER JOIN course c ON sa.course_id = c.id
+                 WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)";
         
         $params = [$student_id];
         $types = 's';
         
         if ($period === 'thismonth') {
-            $query .= " AND MONTH(a.date) = MONTH(CURRENT_DATE) AND YEAR(a.date) = YEAR(CURRENT_DATE)";
+            $query .= " AND MONTH(sa.datetime) = MONTH(CURRENT_DATE) AND YEAR(sa.datetime) = YEAR(CURRENT_DATE)";
         }
         
-        $query .= " ORDER BY a.date DESC";
+        $query .= " ORDER BY sa.datetime DESC";
         break;
 
     case 'get_absence':
-        // Pour les absences, on cherche les jours où il n'y a pas d'enregistrement dans attendance
-        $query = "SELECT DISTINCT c.name as course_name, d.date
-                 FROM course c
-                 CROSS JOIN (
-                     SELECT DISTINCT date 
-                     FROM attendance 
-                     WHERE MONTH(date) = MONTH(CURRENT_DATE) AND YEAR(date) = YEAR(CURRENT_DATE)
-                 ) d
-                 LEFT JOIN attendance a ON a.attendedid = c.studentid AND a.date = d.date
-                 WHERE c.studentid = ? AND a.id IS NULL";
+        // Pour les absences, utiliser student_attendance avec status='absent'
+        $query = "SELECT sa.datetime, c.name as course_name, sa.status, sa.comment
+                 FROM student_attendance sa
+                 INNER JOIN course c ON sa.course_id = c.id
+                 WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+                 AND sa.status IN ('absent', 'late')";
         
         $params = [$student_id];
         $types = 's';
         
         if ($period === 'thismonth') {
-            $query .= " AND MONTH(d.date) = MONTH(CURRENT_DATE) AND YEAR(d.date) = YEAR(CURRENT_DATE)";
+            $query .= " AND MONTH(sa.datetime) = MONTH(CURRENT_DATE) AND YEAR(sa.datetime) = YEAR(CURRENT_DATE)";
         }
         
-        $query .= " ORDER BY d.date DESC";
+        $query .= " ORDER BY sa.datetime DESC";
         break;
 
     default:
@@ -81,9 +78,12 @@ try {
     // Formatage des dates
     if ($results) {
         foreach ($results as &$result) {
-            $date = new DateTime($result['date']);
+            $date = new DateTime($result['datetime'] ?? $result['date'] ?? 'now');
             $result['date_formatted'] = $date->format('d/m/Y');
-            $result['status'] = $action === 'get_presence' ? 'present' : 'absent';
+            $result['time_formatted'] = $date->format('H:i');
+            if (!isset($result['status'])) {
+                $result['status'] = $action === 'get_presence' ? 'present' : 'absent';
+            }
         }
     }
     

@@ -12,11 +12,13 @@ if (!$stinfo) {
 
 // Compter les jours de présence du mois courant
 $attendances = db_fetch_all(
-    "SELECT DISTINCT(date) FROM attendance 
-     WHERE attendedid = ? 
-     AND MONTH(date) = MONTH(CURRENT_DATE) 
-     AND YEAR(date) = YEAR(CURRENT_DATE)",
-    [$check]
+    "SELECT DISTINCT DATE(datetime) as date FROM attendance 
+     WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+     AND person_type = 'staff'
+     AND MONTH(datetime) = MONTH(CURRENT_DATE) 
+     AND YEAR(datetime) = YEAR(CURRENT_DATE)",
+    [$check],
+    's'
 );
 
 $count = count($attendances);
