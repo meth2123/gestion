@@ -74,6 +74,43 @@ if ($verify_result->num_rows === 0) {
 }
 $verify_stmt->close();
 
+// Récupérer l'admin_id depuis le cours
+$admin_id = null;
+$get_admin_sql = "SELECT created_by FROM course WHERE id = ? LIMIT 1";
+$get_admin_stmt = $link->prepare($get_admin_sql);
+if ($get_admin_stmt) {
+    $get_admin_stmt->bind_param("i", $course_id);
+    $get_admin_stmt->execute();
+    $admin_result = $get_admin_stmt->get_result();
+    if ($admin_result && $admin_result->num_rows > 0) {
+        $admin_row = $admin_result->fetch_assoc();
+        $admin_id = $admin_row['created_by'];
+    }
+    $get_admin_stmt->close();
+}
+
+// Si l'admin_id n'est pas trouvé depuis le cours, essayer depuis la classe
+if (!$admin_id) {
+    $get_admin_sql2 = "SELECT created_by FROM class WHERE CAST(id AS CHAR) = CAST(? AS CHAR) LIMIT 1";
+    $get_admin_stmt2 = $link->prepare($get_admin_sql2);
+    if ($get_admin_stmt2) {
+        $get_admin_stmt2->bind_param("s", $class_id);
+        $get_admin_stmt2->execute();
+        $admin_result2 = $get_admin_stmt2->get_result();
+        if ($admin_result2 && $admin_result2->num_rows > 0) {
+            $admin_row2 = $admin_result2->fetch_assoc();
+            $admin_id = $admin_row2['created_by'];
+        }
+        $get_admin_stmt2->close();
+    }
+}
+
+if (!$admin_id) {
+    error_log("Erreur: Impossible de trouver l'admin_id pour le cours $course_id et la classe $class_id");
+    header("Location: markStudentAttendance.php?error=" . urlencode("Erreur: Impossible de déterminer l'administrateur"));
+    exit;
+}
+
 $default_time = date('H:i:s');
 $datetime = $date . ' ' . $default_time;
 $success_count = 0;
@@ -129,11 +166,7 @@ foreach ($statuses as $student_id => $status) {
         if (empty($comment)) {
             $comment = null;
         }
-        // Valider le statut
-        $valid_statuses = ['present', 'absent', 'late', 'excused'];
-        if (!in_array($status, $valid_statuses)) {
-            $status = 'present'; // Valeur par défaut si invalide
-        }
+        // Le statut est déjà validé au début de la boucle
         
         $update_sql = "UPDATE student_attendance 
                        SET status = ?, comment = ?, updated_at = NOW()
@@ -160,18 +193,16 @@ foreach ($statuses as $student_id => $status) {
         if (empty($comment)) {
             $comment = null;
         }
-        // Valider le statut
-        $valid_statuses = ['present', 'absent', 'late', 'excused'];
-        if (!in_array($status, $valid_statuses)) {
-            $status = 'present'; // Valeur par défaut si invalide
-        }
+        // Le statut est déjà validé au début de la boucle
+        
+        error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime, Admin: $admin_id");
         
         $insert_sql = "INSERT INTO student_attendance 
                       (student_id, course_id, class_id, datetime, status, comment, created_by) 
                       VALUES (?, ?, ?, ?, ?, ?, ?)";
         $insert_stmt = $link->prepare($insert_sql);
-        // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (teacher_id)
-        $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $teacher_id);
+        // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (admin_id)
+        $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $admin_id);
         
         error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
         

@@ -93,70 +93,63 @@ if ($check_table) {
     );
 }
 
-// Supprimer la requête des absences et les statistiques
-$query = "
+// Récupérer les absences depuis student_attendance pour la période du bulletin
+// Déterminer les dates de début et fin du semestre
+$semester_start = null;
+$semester_end = null;
+if ($period == '1') {
+    // Premier semestre : septembre à janvier
+    $semester_start = date('Y') . '-09-01';
+    $semester_end = date('Y') . '-01-31';
+    // Si on est après janvier, utiliser l'année précédente pour le début
+    if (date('m') > 1) {
+        $semester_start = (date('Y') - 1) . '-09-01';
+    }
+} elseif ($period == '2') {
+    // Deuxième semestre : février à juin
+    $semester_start = date('Y') . '-02-01';
+    $semester_end = date('Y') . '-06-30';
+} else {
+    // Par défaut, utiliser les 30 derniers jours
+    $semester_start = date('Y-m-d', strtotime('-30 days'));
+    $semester_end = date('Y-m-d');
+}
+
+// Récupérer les absences (status = 'absent' ou 'late')
+$absences_query = "
 SELECT 
-    DATE_FORMAT(a.datetime, '%d/%m/%Y') as date,
-    TIME(a.datetime) as course_time,
+    DATE_FORMAT(sa.datetime, '%d/%m/%Y') as date,
+    TIME(sa.datetime) as course_time,
     c.name as course_name,
     t.name as teacher_name,
-    a.status
-FROM attendance a
-JOIN student_teacher_course stc ON CAST(a.attendedid AS CHAR) = CAST(stc.student_id AS CHAR)
-JOIN course c ON stc.course_id = c.id
-JOIN teachers t ON CAST(stc.teacher_id AS CHAR) = CAST(t.id AS CHAR)
-WHERE CAST(stc.student_id AS CHAR) = CAST(? AS CHAR)
-AND a.person_type = 'student'
-ORDER BY a.datetime DESC, TIME(a.datetime) ASC";
+    sa.status,
+    sa.comment
+FROM student_attendance sa
+JOIN course c ON sa.course_id = c.id
+LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
+WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
+AND sa.status IN ('absent', 'late')
+AND DATE(sa.datetime) >= ?
+AND DATE(sa.datetime) <= ?
+ORDER BY sa.datetime DESC";
 
-$stmt = $conn->prepare($query);
-$stmt->bind_param("s", $student_id);
+$stmt = $conn->prepare($absences_query);
+$stmt->bind_param("ssss", $student_id, $class_id, $semester_start, $semester_end);
 $stmt->execute();
 $absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Supprimer le calcul des statistiques d'absence
-$total_absences = 0;
+// Calculer les statistiques d'absence
+$total_absences = count($absences);
 $justified_absences = 0;
 $unjustified_absences = 0;
 
-// Supprimer la requête des cours et la boucle de calcul des absences
-$courses_query = "
-SELECT DISTINCT c.id, c.name, t.name as teacher_name
-FROM student_teacher_course stc
-JOIN course c ON stc.course_id = c.id
-JOIN teachers t ON stc.teacher_id = t.id
-WHERE stc.student_id = ?";
-
-$stmt = $conn->prepare($courses_query);
-$stmt->bind_param("s", $student_id);
-$stmt->execute();
-$courses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-// Supprimer la boucle de calcul des absences
-foreach ($courses as $course) {
-    $absence_query = "
-    SELECT DATE(a.datetime) as date
-    FROM attendance a
-    WHERE CAST(a.attendedid AS CHAR) = CAST(? AS CHAR)
-    AND a.person_type = 'student'
-    AND DATE(a.datetime) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    AND DATE(a.datetime) <= CURDATE()";
-    
-    $stmt = $conn->prepare($absence_query);
-    $stmt->bind_param("s", $student_id);
-    $stmt->execute();
-    $present_dates = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    
-    // Convertir les dates en tableau pour faciliter la recherche
-    $present_dates_array = array_column($present_dates, 'date');
-    
-    // Vérifier chaque jour des 30 derniers jours
-    for ($i = 0; $i < 30; $i++) {
-        $date = date('Y-m-d', strtotime("-$i days"));
-        if (!in_array($date, $present_dates_array)) {
-            $total_absences++;
-            $unjustified_absences++; // Pour l'instant, toutes les absences sont non justifiées
-        }
+foreach ($absences as $absence) {
+    // Si un commentaire existe, considérer comme justifié, sinon non justifié
+    if (!empty($absence['comment']) && trim($absence['comment']) !== '') {
+        $justified_absences++;
+    } else {
+        $unjustified_absences++;
     }
 }
 
@@ -407,7 +400,7 @@ $content .= '
             <div class="card-body">
                 <h2 class="h5 mb-3">Résultats généraux</h2>
                 <div class="row text-center">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p class="small text-muted mb-1">Moyenne générale</p>
                         <p class="display-6 fw-bold ' . 
                             ($general_average >= 16 ? 'text-success' : 
@@ -415,15 +408,81 @@ $content .= '
                             ($general_average >= 9.99 ? 'text-warning' : 'text-danger'))) . '">' . 
                             number_format($general_average, 2) . '/20</p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p class="small text-muted mb-1">Rang</p>
                         <p class="display-6 fw-bold">' . $student_rank . '<span class="fs-6">/' . $total_students . '</span></p>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <p class="small text-muted mb-1">Mention</p>
                         <p class="display-6 fw-bold ' . $mention_color . '">' . safe_html($mention) . '</p>
                     </div>
+                    <div class="col-md-3">
+                        <p class="small text-muted mb-1">Absences</p>
+                        <p class="display-6 fw-bold text-danger">' . $total_absences . '</p>
+                        <small class="text-muted">' . $justified_absences . ' justifiées / ' . $unjustified_absences . ' non justifiées</small>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Section des absences -->
+        <div class="card mb-4">
+            <div class="card-header bg-danger bg-opacity-10">
+                <h2 class="h5 mb-0 text-danger"><i class="fas fa-calendar-times me-2"></i>Absences</h2>
+            </div>
+            <div class="card-body">
+                ' . ($total_absences > 0 ? '
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Heure</th>
+                                <th>Matière</th>
+                                <th>Professeur</th>
+                                <th>Statut</th>
+                                <th>Commentaire</th>
+                            </tr>
+                        </thead>
+                        <tbody>' : '<p class="text-muted text-center mb-0"><i class="fas fa-check-circle me-2 text-success"></i>Aucune absence enregistrée pour ce semestre.</p>') . '';
+
+if ($total_absences > 0) {
+    foreach ($absences as $absence) {
+        $status_badge = '';
+        $status_text = '';
+        if ($absence['status'] === 'absent') {
+            $status_badge = 'bg-danger';
+            $status_text = 'Absent';
+        } elseif ($absence['status'] === 'late') {
+            $status_badge = 'bg-warning';
+            $status_text = 'En retard';
+        }
+        
+        $justified_badge = !empty($absence['comment']) && trim($absence['comment']) !== '' 
+            ? '<span class="badge bg-success">Justifiée</span>' 
+            : '<span class="badge bg-secondary">Non justifiée</span>';
+        
+        $content .= '
+                            <tr>
+                                <td>' . safe_html($absence['date']) . '</td>
+                                <td>' . safe_html($absence['course_time']) . '</td>
+                                <td>' . safe_html($absence['course_name']) . '</td>
+                                <td>' . safe_html($absence['teacher_name'] ?? 'N/A') . '</td>
+                                <td>
+                                    <span class="badge ' . $status_badge . '">' . safe_html($status_text) . '</span>
+                                    ' . $justified_badge . '
+                                </td>
+                                <td>' . safe_html($absence['comment'] ?? '-') . '</td>
+                            </tr>';
+    }
+    
+    $content .= '
+                        </tbody>
+                    </table>
+                </div>';
+}
+
+$content .= '
             </div>
         </div>
 
