@@ -123,15 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($stmt->execute()) {
         // Envoi de l'email avec la fonction utilitaire
         require_once dirname(dirname(dirname(__FILE__))) . '/service/mailer_utils.php';
-        // Config SMTP (tu peux la centraliser si besoin)
-        $smtp_config = [
-            'host' => 'smtp.gmail.com',
-            'port' => 587,
-            'username' => 'methndiaye43@gmail.com',
-            'password' => 'elaf cmwo iahy gghs',
-            'from_email' => 'methndiaye43@gmail.com',
-            'from_name' => 'Système de Gestion Scolaire'
-        ];
+        require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
+        // Utiliser la configuration SMTP centralisée
+        $smtp_config = get_smtp_config();
+        $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
         $subject = 'Création de votre compte Directeur';
         $body =
             'Bonjour ' . htmlspecialchars($firstname) . ' ' . htmlspecialchars($lastname) . ',<br><br>' .
@@ -140,6 +135,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             '<strong>Mot de passe :</strong> ' . htmlspecialchars($plain_password) . '<br><br>' .
             'Merci de vous connecter et de changer votre mot de passe dès votre première connexion.<br>' .
             '<a href="http://localhost/gestion/login.php">Se connecter</a>';
+        // Ajouter le mot de passe nettoyé à la config pour mailer_utils
+        $smtp_config['password_clean'] = $smtp_password;
         $resultat_mail = envoyer_email_smtp($email, $firstname . ' ' . $lastname, $subject, $body, $smtp_config);
         if ($resultat_mail === true) {
             error_log('Mail directeur envoyé avec succès !');

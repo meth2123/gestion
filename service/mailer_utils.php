@@ -21,13 +21,20 @@ use PHPMailer\PHPMailer\Exception;
  */
 function envoyer_email_smtp($to_email, $to_name, $subject, $body, $smtp_config) {
     try {
+        // Utiliser le mot de passe nettoyé si disponible, sinon utiliser celui de la config
+        $password = isset($smtp_config['password_clean']) ? $smtp_config['password_clean'] : 
+                   (function_exists('get_clean_smtp_password') ? get_clean_smtp_password() : 
+                   str_replace(' ', '', $smtp_config['password']));
+        
         $mail = new PHPMailer(true);
         $mail->isSMTP();
         $mail->Host = $smtp_config['host'];
         $mail->SMTPAuth = true;
         $mail->Username = $smtp_config['username'];
-        $mail->Password = $smtp_config['password'];
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Password = $password;
+        $mail->SMTPSecure = isset($smtp_config['encryption']) && $smtp_config['encryption'] === 'ssl' 
+                           ? PHPMailer::ENCRYPTION_SMTPS 
+                           : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = $smtp_config['port'];
         $mail->CharSet = 'UTF-8';
         $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);

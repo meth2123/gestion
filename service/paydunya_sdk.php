@@ -73,14 +73,21 @@ class PayDunyaSDK {
         $cancel_url = $this->store['cancel_url'] ?? '';
         $return_url = $this->store['return_url'] ?? '';
 
+        // Log des URLs qui seront utilisées
+        error_log("=== URLs PayDunya utilisées ===");
+        error_log("Website URL: " . ($website_url ?: 'non défini'));
+        error_log("Callback URL: " . ($callback_url ?: 'non défini'));
+        error_log("Cancel URL: " . ($cancel_url ?: 'non défini'));
+        error_log("Return URL: " . ($return_url ?: 'non défini'));
+
         if (is_string($website_url) && strpos($website_url, 'localhost') !== false) {
-            throw new Exception("L'URL du site web ne peut pas être en localhost. Utilisez une URL publique (ex: ngrok)");
+            throw new Exception("L'URL du site web ne peut pas être en localhost. Utilisez une URL publique (ex: https://gestion-rlhq.onrender.com)");
         }
         
         if ((is_string($callback_url) && strpos($callback_url, 'localhost') !== false) ||
             (is_string($cancel_url) && strpos($cancel_url, 'localhost') !== false) ||
             (is_string($return_url) && strpos($return_url, 'localhost') !== false)) {
-            throw new Exception("Les URLs de callback ne peuvent pas être en localhost. Utilisez des URLs publiques (ex: ngrok)");
+            throw new Exception("Les URLs de callback ne peuvent pas être en localhost. Utilisez des URLs publiques (ex: https://gestion-rlhq.onrender.com)");
         }
 
         $payload = [

@@ -71,15 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email_message .= "Message:\n" . $message;
                 $headers = "From: " . $email;
                 
-                // Configuration SMTP pour Gmail
-                $smtp_config = [
-                    'host' => 'smtp.gmail.com',
-                    'port' => 587,
-                    'username' => 'methndiaye43@gmail.com',
-                    'password' => 'elaf cmwo iahy gghs',
-                    'from_email' => 'methndiaye43@gmail.com',
-                    'from_name' => 'Système de Gestion Scolaire'
-                ];
+                // Utiliser la configuration SMTP centralisée
+                require_once(__DIR__ . '/../service/smtp_config.php');
+                $smtp_config = get_smtp_config();
+                $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
                 
                 // Si PHPMailer est installé, on l'utilise pour envoyer l'email
                 if ($phpmailer_installed) {
@@ -95,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $mail->Host = $smtp_config['host'];
                         $mail->SMTPAuth = true;
                         $mail->Username = $smtp_config['username'];
-                        $mail->Password = $smtp_config['password'];
+                        $mail->Password = $smtp_password;
                         $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
                         $mail->Port = $smtp_config['port'];
                         $mail->CharSet = 'UTF-8';

@@ -267,15 +267,11 @@ class PayDunyaService {
             return false;
         }
 
-        // Configuration SMTP
-        $smtp_config = [
-            'host' => 'smtp.gmail.com',
-            'port' => 587,
-            'username' => 'methndiaye43@gmail.com',
-            'password' => 'elaf cmwo iahy gghs',
-            'from_email' => 'methndiaye43@gmail.com',
-            'from_name' => 'SchoolManager'
-        ];
+        // Utiliser la configuration SMTP centralisée
+        require_once(__DIR__ . '/smtp_config.php');
+        $smtp_config = get_smtp_config();
+        // Utiliser le mot de passe nettoyé (sans espaces) pour Gmail
+        $smtp_password = get_clean_smtp_password();
 
         try {
             $mail = new PHPMailer(true);
@@ -285,7 +281,7 @@ class PayDunyaService {
             $mail->Host = $smtp_config['host'];
             $mail->SMTPAuth = true;
             $mail->Username = $smtp_config['username'];
-            $mail->Password = $smtp_config['password'];
+            $mail->Password = $smtp_password;
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->Port = $smtp_config['port'];
             $mail->CharSet = 'UTF-8';
