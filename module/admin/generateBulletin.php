@@ -103,6 +103,91 @@ foreach ($course_averages as $course => $data) {
 }
 $general_average = $general_total_coef > 0 ? $general_total / $general_total_coef : 0;
 
+// Récupérer les absences depuis student_attendance pour la période du bulletin
+// Déterminer les dates de début et fin du semestre
+$semester_start = null;
+$semester_end = null;
+$current_year = date('Y');
+$current_month = (int)date('m');
+
+if ($period == '1') {
+    // Premier semestre : septembre de l'année précédente à janvier de l'année actuelle
+    if ($current_month >= 9) {
+        $semester_start = $current_year . '-09-01';
+        $semester_end = ($current_year + 1) . '-01-31';
+    } else {
+        $semester_start = ($current_year - 1) . '-09-01';
+        $semester_end = $current_year . '-01-31';
+    }
+} elseif ($period == '2') {
+    // Deuxième semestre : février à juin
+    if ($current_month >= 2 && $current_month <= 6) {
+        $semester_start = $current_year . '-02-01';
+        $semester_end = $current_year . '-06-30';
+    } elseif ($current_month == 1) {
+        $semester_start = ($current_year - 1) . '-02-01';
+        $semester_end = ($current_year - 1) . '-06-30';
+    } else {
+        $semester_start = $current_year . '-02-01';
+        $semester_end = $current_year . '-06-30';
+    }
+} else {
+    // Par défaut, utiliser les 30 derniers jours
+    $semester_start = date('Y-m-d', strtotime('-30 days'));
+    $semester_end = date('Y-m-d');
+}
+
+// Récupérer les absences (status = 'absent' ou 'late')
+global $link;
+$conn = $link;
+$absences_query = "
+SELECT 
+    DATE_FORMAT(sa.datetime, '%d/%m/%Y') as date,
+    TIME(sa.datetime) as course_time,
+    COALESCE(c.name, 'Cours supprimé') as course_name,
+    COALESCE(t.name, 'Professeur non assigné') as teacher_name,
+    sa.status,
+    sa.comment,
+    sa.datetime as raw_datetime
+FROM student_attendance sa
+LEFT JOIN course c ON sa.course_id = c.id
+LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
+WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
+AND sa.status IN ('absent', 'late')
+AND DATE(sa.datetime) >= ?
+AND DATE(sa.datetime) <= ?
+ORDER BY sa.datetime DESC";
+
+$stmt = $conn->prepare($absences_query);
+if (!$stmt) {
+    error_log("Erreur de préparation de la requête absences: " . $conn->error);
+    $absences = [];
+} else {
+    $stmt->bind_param("ssss", $student_id, $class_id, $semester_start, $semester_end);
+    if (!$stmt->execute()) {
+        error_log("Erreur d'exécution de la requête absences: " . $stmt->error);
+        $absences = [];
+    } else {
+        $absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+    $stmt->close();
+}
+
+// Calculer les statistiques d'absence
+$total_absences = count($absences);
+$justified_absences = 0;
+$unjustified_absences = 0;
+
+foreach ($absences as $absence) {
+    // Si un commentaire existe, considérer comme justifié, sinon non justifié
+    if (!empty($absence['comment']) && trim($absence['comment']) !== '') {
+        $justified_absences++;
+    } else {
+        $unjustified_absences++;
+    }
+}
+
 // Création du PDF
 class MYPDF extends TCPDF {
     public function Header() {
@@ -224,6 +309,53 @@ foreach ($course_averages as $course => $data) {
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(array_sum($w) - $w[5], 7, 'Moyenne générale :', 1, 0, 'R');
 $pdf->Cell($w[5], 7, isset($general_average) ? number_format($general_average, 2) . '/20' : '-', 1, 1, 'C');
+
+$pdf->Ln(10);
+
+// Section des absences
+$pdf->SetFont('helvetica', 'B', 12);
+$pdf->Cell(0, 10, 'Absences', 0, 1, 'L');
+$pdf->Ln(2);
+
+// Statistiques des absences
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(0, 7, 'Total des absences : ' . $total_absences, 0, 1, 'L');
+$pdf->Cell(0, 7, 'Justifiées : ' . $justified_absences . ' | Non justifiées : ' . $unjustified_absences, 0, 1, 'L');
+$pdf->Ln(3);
+
+if ($total_absences > 0) {
+    // En-tête du tableau des absences
+    $pdf->SetFont('helvetica', 'B', 9);
+    $pdf->SetFillColor(240, 240, 240);
+    $absence_header = array('Date', 'Heure', 'Matière', 'Statut', 'Justification');
+    $absence_w = array(30, 20, 50, 30, 50);
+    
+    // En-tête du tableau
+    for($i = 0; $i < count($absence_header); $i++) {
+        $pdf->Cell($absence_w[$i], 6, $absence_header[$i], 1, 0, 'C', true);
+    }
+    $pdf->Ln();
+    
+    // Données des absences
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->SetFillColor(255, 255, 255);
+    
+    foreach ($absences as $absence) {
+        $status_text = $absence['status'] === 'absent' ? 'Absent' : 'En retard';
+        $justification = !empty($absence['comment']) && trim($absence['comment']) !== '' 
+            ? trim($absence['comment']) 
+            : 'Non justifiée';
+        
+        $pdf->Cell($absence_w[0], 5, $absence['date'], 1, 0, 'C');
+        $pdf->Cell($absence_w[1], 5, substr($absence['course_time'], 0, 5), 1, 0, 'C');
+        $pdf->Cell($absence_w[2], 5, substr($absence['course_name'], 0, 30), 1, 0, 'L');
+        $pdf->Cell($absence_w[3], 5, $status_text, 1, 0, 'C');
+        $pdf->Cell($absence_w[4], 5, substr($justification, 0, 35), 1, 1, 'L');
+    }
+} else {
+    $pdf->SetFont('helvetica', 'I', 10);
+    $pdf->Cell(0, 7, 'Aucune absence enregistrée pour ce semestre.', 0, 1, 'L');
+}
 
 // Nettoyer tout tampon de sortie avant de générer le PDF
 ob_end_clean();

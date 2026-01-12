@@ -38,10 +38,21 @@ $date = $_POST['date'] ?? date('Y-m-d');
 $statuses = $_POST['status'] ?? [];
 $comments = $_POST['comment'] ?? [];
 
+// Valider et convertir course_id en entier
+$course_id = filter_var($course_id, FILTER_VALIDATE_INT);
+if ($course_id === false) {
+    error_log("Erreur: course_id invalide reçu: " . ($_POST['course_id'] ?? 'vide'));
+    header("Location: markStudentAttendance.php?error=" . urlencode("ID de cours invalide"));
+    exit;
+}
+
 if (empty($class_id) || empty($course_id) || empty($statuses)) {
+    error_log("Erreur: Paramètres manquants - class_id: " . ($class_id ?: 'vide') . ", course_id: " . ($course_id ?: 'vide') . ", statuses: " . (count($statuses) ?: 'vide'));
     header("Location: markStudentAttendance.php?error=" . urlencode("Paramètres manquants"));
     exit;
 }
+
+error_log("Enregistrement présences - Classe: $class_id, Cours: $course_id, Date: $date, Nombre d'élèves: " . count($statuses));
 
 // Vérifier que le cours appartient bien à cet enseignant
 $verify_sql = "SELECT 1 FROM student_teacher_course 
@@ -117,10 +128,15 @@ $success_count = 0;
 $error_count = 0;
 
 // Debug: Afficher les statuts reçus
+error_log("=== DÉBUT ENREGISTREMENT PRÉSENCES ===");
+error_log("Classe: $class_id, Cours: $course_id, Date: $date");
+error_log("Nombre d'élèves à traiter: " . count($statuses));
 error_log("Statuts reçus: " . print_r($statuses, true));
+error_log("Commentaires reçus: " . print_r($comments, true));
 
 // Enregistrer les présences
 foreach ($statuses as $student_id => $status) {
+    error_log("--- Traitement élève: $student_id, Statut: $status ---");
     // Nettoyer et valider le statut
     $original_status = $status;
     $status = trim(strtolower($status));
@@ -145,46 +161,65 @@ foreach ($statuses as $student_id => $status) {
     
     if ($student_result->num_rows === 0) {
         $error_count++;
+        error_log("⚠️ Élève $student_id n'appartient pas à ce cours ($course_id) ou cette classe ($class_id)");
         continue;
     }
     $check_stmt->close();
+    error_log("✅ Élève $student_id vérifié - appartient bien au cours $course_id et classe $class_id");
     
-    // Vérifier si la présence existe déjà
-    $check_attendance_sql = "SELECT id FROM student_attendance 
+    // Vérifier si la présence existe déjà pour ce jour et ce cours
+    // IMPORTANT: Un élève peut avoir plusieurs cours par jour (Math, Français, Anglais, etc.)
+    // Chaque cours doit être enregistré séparément. On vérifie donc par: student_id + course_id + date
+    // Exemple: Un élève peut être présent en Math mais absent en Français le même jour
+    $check_attendance_sql = "SELECT id, datetime, status FROM student_attendance 
                             WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
                             AND course_id = ?
-                            AND DATE(datetime) = DATE(?)
-                            AND TIME(datetime) = TIME(?)";
+                            AND DATE(datetime) = DATE(?)";
     $check_stmt = $link->prepare($check_attendance_sql);
-    $check_stmt->bind_param("siss", $student_id, $course_id, $datetime, $datetime);
-    $check_stmt->execute();
+    if (!$check_stmt) {
+        error_log("❌ Erreur de préparation CHECK pour l'élève $student_id: " . $link->error);
+        $error_count++;
+        continue;
+    }
+    $check_stmt->bind_param("sis", $student_id, $course_id, $date);
+    if (!$check_stmt->execute()) {
+        error_log("❌ Erreur d'exécution CHECK pour l'élève $student_id: " . $check_stmt->error);
+        $error_count++;
+        $check_stmt->close();
+        continue;
+    }
     $attendance_result = $check_stmt->get_result();
     
     if ($attendance_result->num_rows > 0) {
         // Mettre à jour la présence existante
+        $existing_row = $attendance_result->fetch_assoc();
+        $existing_id = $existing_row['id'];
+        
         $comment = isset($comments[$student_id]) ? trim($comments[$student_id]) : null;
         if (empty($comment)) {
             $comment = null;
         }
         // Le statut est déjà validé au début de la boucle
         
+        // Mettre à jour avec le nouveau datetime pour garder l'heure d'enregistrement actuelle
         $update_sql = "UPDATE student_attendance 
-                       SET status = ?, comment = ?, updated_at = NOW()
-                       WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
-                       AND course_id = ?
-                       AND DATE(datetime) = DATE(?)
-                       AND TIME(datetime) = TIME(?)";
+                       SET status = ?, 
+                           comment = ?, 
+                           datetime = ?,
+                           updated_at = NOW()
+                       WHERE id = ?";
         $update_stmt = $link->prepare($update_sql);
-        $update_stmt->bind_param("sssiss", $status, $comment, $student_id, $course_id, $datetime, $datetime);
+        $update_stmt->bind_param("sssi", $status, $comment, $datetime, $existing_id);
         
-        error_log("Mise à jour présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
+        error_log("Mise à jour présence - ID: $existing_id, Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime");
         
         if ($update_stmt->execute()) {
             $success_count++;
-            error_log("Présence mise à jour avec succès pour l'élève $student_id avec le statut '$status'");
+            error_log("✅ Présence mise à jour avec succès - ID: $existing_id, Élève: $student_id, Statut: '$status'");
         } else {
             $error_count++;
-            error_log("Erreur lors de la mise à jour de la présence pour l'élève $student_id: " . $update_stmt->error);
+            error_log("❌ Erreur lors de la mise à jour de la présence pour l'élève $student_id: " . $update_stmt->error);
+            error_log("   SQL: $update_sql");
         }
         $update_stmt->close();
     } else {
@@ -195,27 +230,63 @@ foreach ($statuses as $student_id => $status) {
         }
         // Le statut est déjà validé au début de la boucle
         
-        error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime, Admin: $admin_id");
+        error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Classe: $class_id, Statut: '$status', DateTime: $datetime, Admin: $admin_id");
         
         $insert_sql = "INSERT INTO student_attendance 
                       (student_id, course_id, class_id, datetime, status, comment, created_by) 
                       VALUES (?, ?, ?, ?, ?, ?, ?)";
         $insert_stmt = $link->prepare($insert_sql);
-        // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (admin_id)
-        $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $admin_id);
         
-        error_log("Insertion présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
+        if (!$insert_stmt) {
+            $error_count++;
+            error_log("Erreur de préparation INSERT pour l'élève $student_id: " . $link->error);
+            continue;
+        }
+        
+        // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (admin_id)
+        $bind_result = $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $admin_id);
+        
+        if (!$bind_result) {
+            $error_count++;
+            error_log("❌ Erreur de bind_param pour l'élève $student_id: " . $insert_stmt->error);
+            $insert_stmt->close();
+            continue;
+        }
         
         if ($insert_stmt->execute()) {
+            $inserted_id = $insert_stmt->insert_id;
             $success_count++;
-            error_log("Présence insérée avec succès pour l'élève $student_id avec le statut '$status'");
+            error_log("✅ Présence insérée avec succès - ID: $inserted_id, Élève: $student_id, Cours: $course_id, Classe: $class_id, Statut: '$status', DateTime: $datetime");
+            
+            // Vérifier que l'enregistrement existe bien dans la base
+            $verify_sql = "SELECT id, status FROM student_attendance WHERE id = ?";
+            $verify_stmt = $link->prepare($verify_sql);
+            if ($verify_stmt) {
+                $verify_stmt->bind_param("i", $inserted_id);
+                $verify_stmt->execute();
+                $verify_result = $verify_stmt->get_result();
+                if ($verify_result->num_rows > 0) {
+                    $verify_row = $verify_result->fetch_assoc();
+                    error_log("✅ Vérification: Enregistrement confirmé dans la base - ID: $inserted_id, Statut: " . $verify_row['status']);
+                } else {
+                    error_log("⚠️ ATTENTION: L'enregistrement $inserted_id n'a pas été trouvé dans la base après insertion!");
+                }
+                $verify_stmt->close();
+            }
         } else {
             $error_count++;
-            error_log("Erreur lors de l'insertion de la présence pour l'élève $student_id: " . $insert_stmt->error);
+            error_log("❌ Erreur lors de l'insertion de la présence pour l'élève $student_id: " . $insert_stmt->error);
+            error_log("   SQL: $insert_sql");
+            error_log("   Paramètres: student_id='$student_id' (type: " . gettype($student_id) . "), course_id=$course_id (type: " . gettype($course_id) . "), class_id='$class_id' (type: " . gettype($class_id) . "), datetime='$datetime', status='$status', comment=" . ($comment ? "'$comment'" : 'NULL') . ", admin_id='$admin_id'");
+            error_log("   Erreur MySQL: " . $link->error);
         }
         $insert_stmt->close();
     }
+    error_log("--- Fin traitement élève: $student_id ---");
 }
+
+error_log("=== FIN ENREGISTREMENT PRÉSENCES ===");
+error_log("Résultat: $success_count succès, $error_count erreurs");
 
 // Redirection avec message
 $redirect_url = "markStudentAttendance.php?date=" . urlencode($date) . 

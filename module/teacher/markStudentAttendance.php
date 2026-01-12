@@ -86,15 +86,15 @@ if ($selected_class && $selected_course) {
     $students = $stmt->get_result();
 }
 
-// Fonction pour vérifier si une présence existe déjà
-function checkStudentAttendanceExists($link, $student_id, $course_id, $datetime) {
+// Fonction pour vérifier si une présence existe déjà pour ce jour
+// On vérifie uniquement la DATE, pas l'heure, car il ne peut y avoir qu'une seule présence par jour
+function checkStudentAttendanceExists($link, $student_id, $course_id, $date) {
     $check_sql = "SELECT id FROM student_attendance 
                   WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
                   AND course_id = ?
-                  AND DATE(datetime) = DATE(?)
-                  AND TIME(datetime) = TIME(?)";
+                  AND DATE(datetime) = DATE(?)";
     $stmt = $link->prepare($check_sql);
-    $stmt->bind_param("siss", $student_id, $course_id, $datetime, $datetime);
+    $stmt->bind_param("sis", $student_id, $course_id, $date);
     $stmt->execute();
     $result = $stmt->get_result();
     return $result->num_rows > 0;
@@ -208,11 +208,10 @@ ob_start();
                                 </thead>
                                 <tbody>
                                     <?php 
-                                    $default_time = date('H:i:s'); // Heure actuelle
-                                    $datetime = $selected_date . ' ' . $default_time;
                                     $counter = 1;
                                     while ($student = $students->fetch_assoc()): 
-                                        $already_marked = checkStudentAttendanceExists($link, $student['id'], $selected_course, $datetime);
+                                        // Vérifier si une présence existe déjà pour ce jour (sans vérifier l'heure)
+                                        $already_marked = checkStudentAttendanceExists($link, $student['id'], $selected_course, $selected_date);
                                     ?>
                                         <tr <?= $already_marked ? 'class="table-secondary"' : '' ?>>
                                             <td><?= $counter++ ?></td>
