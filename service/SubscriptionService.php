@@ -139,8 +139,8 @@ class SubscriptionService {
      */
     private function sendExpiryWarningEmail($email, $username, $school_name, $expiry_date) {
         try {
-            // Utiliser la fonction unifiée (Resend ou SMTP)
-            require_once(__DIR__ . '/smtp_config.php');
+            // Utiliser la fonction unifiée (Resend uniquement)
+            require_once(__DIR__ . '/email_config.php');
             
             $renewal_url = "https://gestion-rlhq.onrender.com/module/subscription/renew.php?school=" . urlencode($school_name);
             

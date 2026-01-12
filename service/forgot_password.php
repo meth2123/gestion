@@ -1,18 +1,8 @@
 <?php
 include_once('mysqlcon.php');
 
-// Charger la configuration SMTP centralisée
-require_once(__DIR__ . '/smtp_config.php');
-$smtp_config = get_smtp_config();
-$smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
-
-// Vérifier si PHPMailer est installé
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    require_once(__DIR__ . '/../vendor/autoload.php');
-    $phpmailer_installed = true;
-} else {
-    $phpmailer_installed = false;
-}
+// Charger la configuration d'email centralisée (Resend uniquement)
+require_once(__DIR__ . '/email_config.php');
 
 // Récupération des données du formulaire
 $user_id = isset($_POST['user_id']) ? trim($_POST['user_id']) : '';
@@ -121,14 +111,8 @@ if (!$stmt->execute()) {
     exit();
 }
 
-if (!$phpmailer_installed) {
-    // Message temporaire en attendant l'installation de PHPMailer
-    header("Location: ../?error=" . urlencode("Le système d'envoi d'email n'est pas encore configuré. Veuillez contacter l'administrateur avec le code suivant : " . $reset_code));
-    exit();
-}
-
-// Utiliser la fonction unifiée (Resend ou SMTP)
-require_once(__DIR__ . '/smtp_config.php');
+// Utiliser la fonction unifiée (Resend uniquement)
+require_once(__DIR__ . '/email_config.php');
 
 // Déterminer l'adresse email en fonction du type d'utilisateur
 $recipient_email = '';
@@ -164,17 +148,12 @@ if ($user['usertype'] === 'parent') {
 }
 
 try {
-    // Utiliser la fonction unifiée (Resend prioritaire, SMTP en fallback)
+    // Utiliser la fonction unifiée (Resend uniquement)
     $result = send_email_unified($recipient_email, '', $email_subject, $email_body);
     
     if (!$result['success']) {
         throw new Exception($result['message']);
     }
-    
-    // Version texte pour les clients mail qui ne supportent pas le HTML
-    $mail->AltBody = "Code de réinitialisation : {$reset_code}\nCe code expirera dans 1 heure.";
-    
-    $mail->send();
     
     // Utiliser une session temporaire pour stocker le code de manière sécurisée
     if (session_status() === PHP_SESSION_NONE) {

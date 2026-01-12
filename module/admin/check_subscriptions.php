@@ -1,15 +1,9 @@
 <?php
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+// PHPMailer supprimé - utilisation de Resend uniquement
 
 session_start();
 require_once __DIR__ . '/../../service/mysqlcon.php';
 require_once __DIR__ . '/../../service/NotificationService.php';
-
-// Vérifier si PHPMailer est installé
-if (file_exists(__DIR__ . '/../../vendor/autoload.php')) {
-    require_once(__DIR__ . '/../../vendor/autoload.php');
-}
 
 // Vérifier si l'utilisateur est connecté, est un administrateur et est spécifiquement ad-123-1
 if (!isset($_SESSION['user_type']) || 
@@ -26,10 +20,8 @@ $subscriptions = [];
 $renewals = [];
 $notifications = [];
 
-// Utiliser la configuration SMTP centralisée
-require_once(__DIR__ . '/../../service/smtp_config.php');
-$smtp_config = get_smtp_config();
-$smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
+// Utiliser la configuration d'email centralisée (Resend uniquement)
+require_once(__DIR__ . '/../../service/email_config.php');
 
 // Fonction pour générer un ID admin unique
 function generateAdminId($school_name) {

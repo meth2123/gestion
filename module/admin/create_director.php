@@ -3,8 +3,7 @@ require_once dirname(dirname(dirname(__FILE__))) . '/config.php';
 require_once MYSQLCON_PATH;
 require_once DB_CONFIG_PATH;
 require_once dirname(dirname(dirname(__FILE__))) . '/vendor/autoload.php';
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+// PHPMailer supprimé - utilisation de Resend uniquement
 
 // Messages d'erreur
 $error_messages = [
@@ -121,14 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("ssss", $firstname, $lastname, $email, $created_by);
     error_log('DEBUG create_director.php : avant $stmt->execute()');
     if ($stmt->execute()) {
-        // Envoi de l'email avec la fonction utilitaire
-        require_once dirname(dirname(dirname(__FILE__))) . '/service/mailer_utils.php';
-        require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
-        // Utiliser la configuration SMTP centralisée
-        $smtp_config = get_smtp_config();
-        $smtp_password = get_clean_smtp_password(); // Mot de passe sans espaces pour Gmail
-        // Utiliser la fonction unifiée (Resend ou SMTP)
-        require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
+        // Envoi de l'email avec la fonction unifiée (Resend uniquement)
+        require_once dirname(dirname(dirname(__FILE__))) . '/service/email_config.php';
         
         $login_url = "https://gestion-rlhq.onrender.com/login.php";
         $subject = 'Création de votre compte Directeur';
@@ -195,8 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("isss", $director_id, $action_type, $created_by, $details);
     $stmt->execute();
 
-    // Envoi de l'email avec la fonction unifiée (Resend ou SMTP)
-    require_once dirname(dirname(dirname(__FILE__))) . '/service/smtp_config.php';
+    // Envoi de l'email avec la fonction unifiée (Resend uniquement)
+    require_once dirname(dirname(dirname(__FILE__))) . '/service/email_config.php';
     
     try {
         $login_url = "https://gestion-rlhq.onrender.com/login.php";
@@ -240,10 +233,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Vérifier si Resend est configuré pour le log
         require_once(__DIR__ . '/../../service/resend_service.php');
-        $resend_configured = function_exists('is_resend_configured') && is_resend_configured();
-        
         if ($result['success']) {
-            error_log('Email envoyé avec succès via ' . ($resend_configured ? 'Resend' : 'SMTP') . ' !');
+            error_log('Email envoyé avec succès via Resend !');
         } else {
             error_log('Erreur lors de l\'envoi de l\'email : ' . $result['message']);
         }

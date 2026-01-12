@@ -71,8 +71,8 @@ echo "</div>";
 echo "<div class='section'>";
 echo "<h2>2. Configuration Resend</h2>";
 
-$from_email = getEnvVar('RESEND_FROM_EMAIL', getEnvVar('SMTP_FROM_EMAIL', 'noreply@resend.dev'));
-$from_name = getEnvVar('RESEND_FROM_NAME', getEnvVar('SMTP_FROM_NAME', 'SchoolManager'));
+$from_email = getEnvVar('RESEND_FROM_EMAIL', 'noreply@resend.dev');
+$from_name = getEnvVar('RESEND_FROM_NAME', 'SchoolManager');
 
 echo "<p><strong>Email expéditeur:</strong> " . htmlspecialchars($from_email) . "</p>";
 echo "<p><strong>Nom expéditeur:</strong> " . htmlspecialchars($from_name) . "</p>";
@@ -157,7 +157,7 @@ if (!$is_configured) {
     echo "<p>Pour tester l'envoi d'email, utilisez la fonction <code>send_email_unified()</code> dans votre code.</p>";
     echo "<p><strong>Exemple:</strong></p>";
     echo "<pre>";
-    echo "require_once(__DIR__ . '/service/smtp_config.php');\n";
+    echo "require_once(__DIR__ . '/service/email_config.php');\n";
     echo "\$result = send_email_unified(\n";
     echo "    'test@example.com',\n";
     echo "    'Test User',\n";

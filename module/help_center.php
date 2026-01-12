@@ -2,9 +2,7 @@
 // Inclure les fichiers nécessaires
 include_once('../service/mysqlcon.php');
 
-// Vérifier si PHPMailer est installé
-$phpmailer_path = __DIR__ . '/../vendor/autoload.php';
-$phpmailer_installed = file_exists($phpmailer_path);
+// PHPMailer supprimé - utilisation de Resend uniquement
 
 // Définir l'URL actuelle pour le formulaire
 $current_url = $_SERVER['PHP_SELF'];
@@ -71,14 +69,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email_message .= "Message:\n" . $message;
                 $headers = "From: " . $email;
                 
-                // Utiliser la fonction unifiée (Resend ou SMTP)
-                require_once(__DIR__ . '/../service/smtp_config.php');
+                // Utiliser la fonction unifiée (Resend uniquement)
+                require_once(__DIR__ . '/../service/email_config.php');
                 
                 try {
                     // Convertir le message texte en HTML simple
                     $email_body_html = nl2br(htmlspecialchars($email_message));
                     
-                    // Utiliser la fonction unifiée (Resend prioritaire, SMTP en fallback)
+                    // Utiliser la fonction unifiée (Resend uniquement)
                     $result = send_email_unified($to, '', $email_subject, $email_body_html, $email_message);
                     
                     if ($result['success']) {
@@ -94,9 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success_message = "Votre message a été enregistré avec succès. Nous vous répondrons dans les plus brefs délais.";
                 }
                 
-                // Fallback vers mail() si nécessaire
+                // Fallback vers mail() si nécessaire (non utilisé - Resend uniquement)
                 if (false) {
-                    // Si PHPMailer n'est pas installé, on utilise la fonction mail() native
+                    // Code de fallback désactivé - Resend est maintenant obligatoire
                     $old_error_reporting = error_reporting();
                     error_reporting($old_error_reporting & ~E_WARNING);
                     

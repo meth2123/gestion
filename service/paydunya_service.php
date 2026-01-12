@@ -261,14 +261,8 @@ class PayDunyaService {
     }
 
     private function sendCredentialsEmail($email, $admin_id, $password, $school_name) {
-        // Vérifier si PHPMailer est installé
-        if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
-            error_log("PHPMailer n'est pas installé. Impossible d'envoyer l'email.");
-            return false;
-        }
-
-        // Utiliser la fonction unifiée (Resend ou SMTP)
-        require_once(__DIR__ . '/smtp_config.php');
+        // Utiliser la fonction unifiée (Resend uniquement)
+        require_once(__DIR__ . '/email_config.php');
         
         try {
             // URL de connexion
@@ -354,8 +348,8 @@ class PayDunyaService {
      */
     private function sendRenewalConfirmationEmail($email, $school_name) {
         try {
-            // Utiliser la fonction unifiée (Resend ou SMTP)
-            require_once(__DIR__ . '/smtp_config.php');
+            // Utiliser la fonction unifiée (Resend uniquement)
+            require_once(__DIR__ . '/email_config.php');
             
             // URL de connexion
             $login_url = "https://gestion-rlhq.onrender.com/login.php";

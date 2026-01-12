@@ -1,15 +1,6 @@
 <?php
 require_once __DIR__ . '/../service/SubscriptionDetector.php';
-require_once __DIR__ . '/../service/smtp_config.php';
-
-// Charger l'autoloader de Composer pour PHPMailer
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
-    require_once(__DIR__ . '/../vendor/autoload.php');
-}
-
-// Importer PHPMailer
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+require_once __DIR__ . '/../service/email_config.php';
 
 class SecureSubscriptionChecker {
     private $detector;
@@ -136,17 +127,10 @@ class SecureSubscriptionChecker {
      */
     private function sendVerificationEmailMessage($email, $subscription_data) {
         try {
-            if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
-                return [
-                    'success' => false,
-                    'message' => 'PHPMailer n\'est pas installé. Impossible d\'envoyer l\'email.'
-                ];
-            }
+            // Utiliser la fonction unifiée (Resend uniquement)
+            require_once(__DIR__ . '/../service/email_config.php');
             
-            // Utiliser la configuration SMTP centralisée
-            $smtp_config = get_smtp_config();
-            
-            // Préparer le contenu de l'email avant la configuration SMTP
+            // Préparer le contenu de l'email
             $subscription = $subscription_data['subscription'];
             $status = $subscription_data['status'];
             $days_until_expiry = $subscription_data['days_until_expiry'];
@@ -185,203 +169,28 @@ class SecureSubscriptionChecker {
             $email_body = $this->prepareEmailBody($subscription, $status_text, $status_color, $status_icon, $days_until_expiry, $can_renew, $renewal_url, $login_url, $status);
             $email_alt_body = $this->prepareEmailAltBody($subscription, $status_text, $days_until_expiry, $can_renew, $renewal_url, $login_url, $status);
             
-            // Essayer d'abord avec le mot de passe nettoyé (sans espaces) - méthode recommandée pour Gmail
-            $password_clean = get_clean_smtp_password();
-            $password_original = $smtp_config['password'];
+            // Envoyer via Resend
+            $result = send_email_unified($email, '', 'Informations de votre abonnement SchoolManager', $email_body, $email_alt_body);
             
-            // Stratégie de connexion : essayer plusieurs méthodes pour Render
-            $attempts = [
-                ['password' => $password_clean, 'use_ssl' => false, 'description' => 'STARTTLS (port 587) avec mot de passe nettoyé'],
-                ['password' => $password_original, 'use_ssl' => false, 'description' => 'STARTTLS (port 587) avec mot de passe original'],
-                ['password' => $password_clean, 'use_ssl' => true, 'description' => 'SSL (port 465) avec mot de passe nettoyé'],
-                ['password' => $password_original, 'use_ssl' => true, 'description' => 'SSL (port 465) avec mot de passe original']
-            ];
-            
-            $last_error = null;
-            $last_error_info = null;
-            
-            foreach ($attempts as $index => $attempt) {
-                try {
-                    // Ajouter un délai progressif entre les tentatives (exponential backoff)
-                    if ($index > 0) {
-                        $delay = min(2 * $index, 5); // Délai de 2, 4, 5, 5 secondes max
-                        error_log("Attente de {$delay} secondes avant la tentative " . ($index + 1));
-                        sleep($delay);
-                    }
-                    
-                    error_log("Tentative " . ($index + 1) . " : " . $attempt['description']);
-                    $mail = $this->createPHPMailerInstance($smtp_config, $email, $attempt['password'], $attempt['use_ssl']);
-                    $mail->Subject = 'Informations de votre abonnement SchoolManager';
-                    $mail->Body = $email_body;
-                    $mail->AltBody = $email_alt_body;
-                    
-                    // Tester la connexion avant d'envoyer (optionnel mais peut aider)
-                    // Note: PHPMailer teste automatiquement la connexion lors de send()
-                    
-                    $mail->send();
-                    
-                    error_log("Succès avec : " . $attempt['description']);
-                    return [
-                        'success' => true,
-                        'message' => 'Les informations de votre abonnement ont été envoyées à votre adresse email. Veuillez vérifier votre boîte de réception.'
-                    ];
-                } catch (Exception $e) {
-                    $error_message = $e->getMessage();
-                    $error_info = isset($mail) ? $mail->ErrorInfo : 'N/A';
-                    error_log("Tentative " . ($index + 1) . " échouée : " . $error_message);
-                    error_log("SMTP ErrorInfo : " . $error_info);
-                    
-                    $last_error = $error_message;
-                    $last_error_info = $error_info;
-                    
-                    // Si c'est une erreur de connexion, continuer avec la tentative suivante
-                    if (strpos($error_message, 'Could not connect') !== false || 
-                        strpos($error_message, 'Failed to connect') !== false ||
-                        strpos($error_message, 'Connection timed out') !== false ||
-                        strpos($error_message, 'Connection refused') !== false ||
-                        strpos($error_message, 'timed out') !== false) {
-                        // Continuer avec la tentative suivante
-                        continue;
-                    }
-                    
-                    // Si c'est une erreur d'authentification, continuer aussi
-                    if (strpos($error_message, 'Could not authenticate') !== false || 
-                        strpos($error_message, 'authentication') !== false) {
-                        // Continuer avec la tentative suivante
-                        continue;
-                    }
-                    
-                    // Pour les autres erreurs, on peut aussi continuer
-                    continue;
-                }
-            }
-            
-            // Si toutes les tentatives ont échoué
-            error_log("Toutes les tentatives de connexion SMTP ont échoué");
-            error_log("Dernière erreur : " . $last_error);
-            error_log("Dernier SMTP ErrorInfo : " . $last_error_info);
-            
-            // Détecter si on est sur Render.com
-            $is_render = getenv('RENDER') === 'true' || getenv('IS_RENDER') === 'true' || 
-                         strpos($_SERVER['HTTP_HOST'] ?? '', 'render.com') !== false ||
-                         strpos($_SERVER['HTTP_HOST'] ?? '', 'onrender.com') !== false;
-            
-            // Message d'erreur plus explicite selon le type d'erreur
-            $user_message = 'Erreur lors de l\'envoi de l\'email. ';
-            if (strpos($last_error, 'Could not connect') !== false || 
-                strpos($last_error, 'Failed to connect') !== false ||
-                strpos($last_error, 'Connection timed out') !== false ||
-                strpos($last_error, 'timed out') !== false) {
-                $user_message .= 'Impossible de se connecter au serveur SMTP. ';
-                if ($is_render) {
-                    $user_message .= 'Sur Render.com, les connexions SMTP peuvent être bloquées. ';
-                    $user_message .= 'Veuillez vérifier que les ports SMTP (587, 465) ne sont pas bloqués dans les paramètres réseau de Render, ';
-                    $user_message .= 'ou envisagez d\'utiliser un service d\'email tiers comme SendGrid ou Mailgun. ';
-                }
-                $user_message .= 'Veuillez réessayer plus tard ou contacter l\'administrateur.';
-            } elseif (strpos($last_error, 'Could not authenticate') !== false) {
-                $user_message .= 'Erreur d\'authentification SMTP. Veuillez vérifier que le mot de passe d\'application Gmail est correct et valide.';
+            if ($result['success']) {
+                return [
+                    'success' => true,
+                    'message' => 'Les informations de votre abonnement ont été envoyées à votre adresse email. Veuillez vérifier votre boîte de réception.'
+                ];
             } else {
-                $user_message .= 'Erreur SMTP : ' . htmlspecialchars(substr($last_error, 0, 200));
+                return [
+                    'success' => false,
+                    'message' => 'Erreur lors de l\'envoi de l\'email: ' . $result['message']
+                ];
             }
-            
-            return [
-                'success' => false,
-                'message' => $user_message
-            ];
             
         } catch (Exception $e) {
-            // Gérer les autres erreurs non liées à l'authentification
-            $error_message = $e->getMessage();
-            error_log("Erreur PHPMailer générale : " . $error_message);
-            error_log("SMTP ErrorInfo : " . (isset($mail) ? $mail->ErrorInfo : 'N/A'));
-            
-            // Détecter si on est sur Render.com
-            $is_render = getenv('RENDER') === 'true' || getenv('IS_RENDER') === 'true' || 
-                         strpos($_SERVER['HTTP_HOST'] ?? '', 'render.com') !== false ||
-                         strpos($_SERVER['HTTP_HOST'] ?? '', 'onrender.com') !== false;
-            
-            // Message d'erreur plus explicite pour l'utilisateur
-            $user_message = 'Erreur lors de l\'envoi de l\'email. ';
-            if (strpos($error_message, 'Could not connect') !== false || 
-                strpos($error_message, 'Failed to connect') !== false ||
-                strpos($error_message, 'Connection timed out') !== false ||
-                strpos($error_message, 'timed out') !== false) {
-                $user_message .= 'Impossible de se connecter au serveur SMTP. ';
-                if ($is_render) {
-                    $user_message .= 'Sur Render.com, les connexions SMTP peuvent être bloquées. ';
-                    $user_message .= 'Veuillez vérifier que les ports SMTP (587, 465) ne sont pas bloqués dans les paramètres réseau de Render, ';
-                    $user_message .= 'ou envisagez d\'utiliser un service d\'email tiers comme SendGrid ou Mailgun. ';
-                }
-                $user_message .= 'Veuillez réessayer plus tard.';
-            } else {
-                $user_message .= htmlspecialchars(substr($error_message, 0, 200));
-            }
-            
+            error_log("Erreur lors de l'envoi de l'email: " . $e->getMessage());
             return [
                 'success' => false,
-                'message' => $user_message
+                'message' => 'Erreur lors de l\'envoi de l\'email: ' . htmlspecialchars(substr($e->getMessage(), 0, 200))
             ];
         }
-    }
-    
-    /**
-     * Crée une instance PHPMailer configurée
-     */
-    private function createPHPMailerInstance($smtp_config, $email, $password, $use_ssl = false) {
-        $mail = new PHPMailer(true);
-        
-        // Configuration SMTP avec timeouts et options améliorées pour Render
-        $mail->isSMTP();
-        $mail->Host = $smtp_config['host'];
-        $mail->SMTPAuth = true;
-        $mail->Username = $smtp_config['username'];
-        $mail->Password = $password;
-        
-        // Utiliser SSL (port 465) ou STARTTLS (port 587) selon le paramètre
-        if ($use_ssl) {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-            $mail->Port = 465;
-        } else {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = $smtp_config['port'];
-        }
-        
-        $mail->CharSet = 'UTF-8';
-        
-        // Options SMTP améliorées pour les connexions depuis Render (serveurs distants)
-        $mail->SMTPOptions = [
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true,
-                'crypto_method' => STREAM_CRYPTO_METHOD_TLS_CLIENT,
-                'peer_name' => $smtp_config['host']
-            ]
-        ];
-        
-        // Timeouts augmentés pour les connexions depuis Render vers Gmail
-        // Timeout général augmenté à 90 secondes pour Render.com (augmenté de 60 à 90)
-        $mail->Timeout = 90;
-        // Timeout de connexion spécifique (si supporté par PHPMailer)
-        if (property_exists($mail, 'SMTPConnectTimeout')) {
-            $mail->SMTPConnectTimeout = 30;
-        }
-        $mail->SMTPKeepAlive = false; // Ne pas garder la connexion ouverte
-        
-        // Options de connexion améliorées pour Render
-        $mail->SMTPAutoTLS = true; // Activer TLS automatiquement
-        $mail->SMTPDebug = 0; // Désactiver le debug en production (mettre à 2 pour debug)
-        
-        // Options supplémentaires pour améliorer la connexion depuis Render
-        $mail->SMTPAuth = true;
-        
-        // Destinataires
-        $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-        $mail->addAddress($email);
-        $mail->isHTML(true);
-        
-        return $mail;
     }
     
     /**

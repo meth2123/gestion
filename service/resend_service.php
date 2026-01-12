@@ -115,10 +115,10 @@ function send_email_via_resend($to_email, $to_name, $subject, $html_body, $text_
     
     // Configuration par défaut
     if (empty($from_email)) {
-        $from_email = getEnvVar('RESEND_FROM_EMAIL', getEnvVar('SMTP_FROM_EMAIL', 'noreply@resend.dev'));
+        $from_email = getEnvVar('RESEND_FROM_EMAIL', 'noreply@resend.dev');
     }
     if (empty($from_name)) {
-        $from_name = getEnvVar('RESEND_FROM_NAME', getEnvVar('SMTP_FROM_NAME', 'SchoolManager'));
+        $from_name = getEnvVar('RESEND_FROM_NAME', 'SchoolManager');
     }
     
     // Nettoyer les valeurs
