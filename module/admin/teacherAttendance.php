@@ -3,242 +3,258 @@ include_once('main.php');
 include_once('../../service/mysqlcon.php');
 
 $admin_id = $_SESSION['login_id'];
+$selected_date = $_GET['date'] ?? date('Y-m-d');
 
-// Approche en deux étapes pour éviter les problèmes de collation
-
-// 1. D'abord, récupérer tous les enseignants avec toutes les colonnes nécessaires
-// Note: La colonne 'subject' n'existe pas dans la table teachers
-$sql_teachers = "SELECT t.id, t.name, t.phone, t.email, 
-                 GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS classes
+// Récupérer tous les enseignants avec leurs cours du jour
+$sql_teachers = "SELECT DISTINCT t.id, t.name, t.phone, t.email
                  FROM teachers t
-                 LEFT JOIN course co ON CAST(co.teacherid AS CHAR) = CAST(t.id AS CHAR)
-                 LEFT JOIN class c ON CAST(co.classid AS CHAR) = CAST(c.id AS CHAR)
-                 GROUP BY t.id, t.name, t.phone, t.email";
-$all_teachers = $link->query($sql_teachers);
+                 WHERE CAST(t.created_by AS CHAR) = CAST(? AS CHAR)
+                 ORDER BY t.name";
+$stmt = $link->prepare($sql_teachers);
+$stmt->bind_param("s", $admin_id);
+$stmt->execute();
+$all_teachers = $stmt->get_result();
 
-// Tableau pour stocker les enseignants filtrés
-$filtered_teachers = [];
-
-// 2. Filtrer manuellement les enseignants qui correspondent à l'administrateur connecté
-if ($all_teachers && $all_teachers->num_rows > 0) {
-    while ($teacher = $all_teachers->fetch_assoc()) {
-        // Vérifier si l'enseignant a été créé par l'administrateur actuel
-        $check_sql = "SELECT id FROM teachers WHERE id = '" . $link->real_escape_string($teacher['id']) . "' AND created_by = '" . $link->real_escape_string($admin_id) . "'";
-        $check_result = $link->query($check_sql);
+// Fonction pour récupérer les cours d'un enseignant pour une date donnée
+function getTeacherCoursesForDate($link, $teacher_id, $date) {
+    $day_of_week = date('N', strtotime($date)); // 1=Lundi, 7=Dimanche
+    
+    // Récupérer les cours via class_schedule (si disponible)
+    $schedule_sql = "SELECT cs.id as schedule_id, cs.class_id, cs.subject_id, cs.slot_id,
+                            c.id as course_id, c.name as course_name,
+                            cl.name as class_name,
+                            ts.start_time, ts.end_time
+                     FROM class_schedule cs
+                     JOIN course c ON CAST(cs.subject_id AS CHAR) = CAST(c.id AS CHAR)
+                     JOIN class cl ON CAST(cs.class_id AS CHAR) = CAST(cl.id AS CHAR)
+                     LEFT JOIN time_slots ts ON cs.slot_id = ts.slot_id
+                     WHERE CAST(cs.teacher_id AS CHAR) = CAST(? AS CHAR)
+                     AND ts.day_number = ?
+                     ORDER BY ts.start_time";
+    
+    $stmt = $link->prepare($schedule_sql);
+    $stmt->bind_param("si", $teacher_id, $day_of_week);
+    $stmt->execute();
+    $scheduled_courses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    
+    // Si pas de cours dans l'emploi du temps, récupérer tous les cours de l'enseignant
+    if (empty($scheduled_courses)) {
+        $courses_sql = "SELECT DISTINCT c.id as course_id, c.name as course_name,
+                               cl.id as class_id, cl.name as class_name
+                        FROM course c
+                        JOIN class cl ON CAST(c.classid AS CHAR) = CAST(cl.id AS CHAR)
+                        WHERE CAST(c.teacherid AS CHAR) = CAST(? AS CHAR)
+                        ORDER BY c.name";
+        $stmt = $link->prepare($courses_sql);
+        $stmt->bind_param("s", $teacher_id);
+        $stmt->execute();
+        $courses = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         
-        if ($check_result && $check_result->num_rows > 0) {
-            // Vérifier si l'enseignant a déjà été marqué présent aujourd'hui
-            $attendance_sql = "SELECT id FROM attendance WHERE attendedid = '" . $link->real_escape_string($teacher['id']) . "' AND date = CURDATE()";
-            $attendance_result = $link->query($attendance_sql);
-            
-            // Vérifier si l'enseignant a déjà été marqué absent aujourd'hui
-            $absence_sql = "SELECT id FROM teacher_absences WHERE teacher_id = '" . $link->real_escape_string($teacher['id']) . "' AND date = CURDATE()";
-            $absence_result = $link->query($absence_sql);
-            
-            // Si l'enseignant n'a pas été marqué présent ou absent, l'ajouter à la liste
-            if ((!$attendance_result || $attendance_result->num_rows == 0) && 
-                (!$absence_result || $absence_result->num_rows == 0)) {
-                // S'assurer que toutes les clés existent pour éviter les avertissements
-                if (!isset($teacher['phone'])) $teacher['phone'] = '';
-                if (!isset($teacher['email'])) $teacher['email'] = '';
-                if (!isset($teacher['classes'])) $teacher['classes'] = 'Aucune classe';
-                
-                $filtered_teachers[] = $teacher;
-            }
+        // Ajouter des horaires par défaut si pas d'emploi du temps
+        foreach ($courses as &$course) {
+            $course['start_time'] = '08:00:00';
+            $course['end_time'] = '09:00:00';
+            $course['schedule_id'] = null;
+            $course['slot_id'] = null;
         }
-    }
-}
-
-// Créer un objet qui simule le résultat d'une requête pour maintenir la compatibilité avec le reste du code
-class MockResult {
-    public $num_rows;
-    private $data;
-    private $position = 0;
-    
-    public function __construct($data) {
-        $this->data = $data;
-        $this->num_rows = count($data);
+        return $courses;
     }
     
-    public function fetch_assoc() {
-        if ($this->position >= count($this->data)) {
-            return null;
-        }
-        return $this->data[$this->position++];
-    }
+    return $scheduled_courses;
 }
 
-// Créer le résultat simulé
-$result = new MockResult($filtered_teachers);
+// Fonction pour vérifier si une présence existe déjà
+function checkAttendanceExists($link, $teacher_id, $course_id, $datetime) {
+    $check_sql = "SELECT id FROM attendance 
+                  WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+                  AND course_id = ?
+                  AND DATE(datetime) = DATE(?)
+                  AND TIME(datetime) = TIME(?)";
+    $stmt = $link->prepare($check_sql);
+    $stmt->bind_param("siss", $teacher_id, $course_id, $datetime, $datetime);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->num_rows > 0;
+}
 
 // Générer le contenu HTML
-$content = '<!DOCTYPE html>
+ob_start();
+?>
+
+<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Présences des Enseignants</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .course-select {
+            margin-top: 10px;
+        }
+        .attendance-form {
+            margin-bottom: 20px;
+        }
+        .time-badge {
+            font-size: 0.85em;
+            padding: 4px 8px;
+        }
+    </style>
 </head>
 <body class="bg-light">
     <div class="container py-4">
-        <div class="row">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2 class="h3 fw-bold">Présences des Enseignants</h2>
-                    <div class="text-muted small">
-                        Date: ' . date('d/m/Y') . '
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h3 fw-bold"><i class="fas fa-chalkboard-teacher me-2"></i>Présences des Enseignants</h2>
+            <div>
+                <input type="date" id="date-selector" value="<?= htmlspecialchars($selected_date) ?>" class="form-control">
+            </div>
+        </div>
+
+        <?php if (isset($_GET['success'])): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <?= htmlspecialchars($_GET['success']) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_GET['error'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?= htmlspecialchars($_GET['error']) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <?php if ($all_teachers && $all_teachers->num_rows > 0): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Enseignant</th>
+                                    <th>Cours / Horaire</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php while ($teacher = $all_teachers->fetch_assoc()): ?>
+                                    <?php 
+                                    $courses = getTeacherCoursesForDate($link, $teacher['id'], $selected_date);
+                                    if (empty($courses)): 
+                                    ?>
+                                        <tr>
+                                            <td>
+                                                <strong><?= htmlspecialchars($teacher['name']) ?></strong><br>
+                                                <small class="text-muted"><?= htmlspecialchars($teacher['id']) ?></small>
+                                            </td>
+                                            <td>
+                                                <span class="text-muted">Aucun cours programmé</span>
+                                            </td>
+                                            <td>
+                                                <form method="POST" action="attendTeacher.php" class="d-inline">
+                                                    <input type="hidden" name="teacher_id" value="<?= htmlspecialchars($teacher['id']) ?>">
+                                                    <input type="hidden" name="date" value="<?= htmlspecialchars($selected_date) ?>">
+                                                    <input type="hidden" name="course_id" value="">
+                                                    <input type="hidden" name="status" value="present">
+                                                    <button type="submit" class="btn btn-success btn-sm">
+                                                        <i class="fas fa-check me-1"></i>Présent
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="attendTeacher.php" class="d-inline">
+                                                    <input type="hidden" name="teacher_id" value="<?= htmlspecialchars($teacher['id']) ?>">
+                                                    <input type="hidden" name="date" value="<?= htmlspecialchars($selected_date) ?>">
+                                                    <input type="hidden" name="course_id" value="">
+                                                    <input type="hidden" name="status" value="absent">
+                                                    <button type="submit" class="btn btn-danger btn-sm">
+                                                        <i class="fas fa-times me-1"></i>Absent
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($courses as $course): ?>
+                                            <?php
+                                            $course_datetime = $selected_date . ' ' . $course['start_time'];
+                                            $already_marked = checkAttendanceExists($link, $teacher['id'], $course['course_id'], $course_datetime);
+                                            ?>
+                                            <tr <?= $already_marked ? 'class="table-secondary"' : '' ?>>
+                                                <td>
+                                                    <?php if ($course === reset($courses)): ?>
+                                                        <strong><?= htmlspecialchars($teacher['name']) ?></strong><br>
+                                                        <small class="text-muted"><?= htmlspecialchars($teacher['id']) ?></small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <strong><?= htmlspecialchars($course['course_name']) ?></strong>
+                                                    <?php if (!empty($course['class_name'])): ?>
+                                                        <br><small class="text-muted">Classe: <?= htmlspecialchars($course['class_name']) ?></small>
+                                                    <?php endif; ?>
+                                                    <?php if (!empty($course['start_time'])): ?>
+                                                        <br><span class="badge bg-info time-badge">
+                                                            <i class="fas fa-clock me-1"></i>
+                                                            <?= date('H:i', strtotime($course['start_time'])) ?> - <?= date('H:i', strtotime($course['end_time'])) ?>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <?php if ($already_marked): ?>
+                                                        <br><small class="text-success"><i class="fas fa-check-circle me-1"></i>Déjà marqué</small>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if (!$already_marked): ?>
+                                                        <form method="POST" action="attendTeacher.php" class="d-inline">
+                                                            <input type="hidden" name="teacher_id" value="<?= htmlspecialchars($teacher['id']) ?>">
+                                                            <input type="hidden" name="date" value="<?= htmlspecialchars($selected_date) ?>">
+                                                            <input type="hidden" name="course_id" value="<?= htmlspecialchars($course['course_id']) ?>">
+                                                            <input type="hidden" name="time_slot_id" value="<?= htmlspecialchars($course['slot_id'] ?? '') ?>">
+                                                            <input type="hidden" name="datetime" value="<?= htmlspecialchars($course_datetime) ?>">
+                                                            <input type="hidden" name="status" value="present">
+                                                            <button type="submit" class="btn btn-success btn-sm">
+                                                                <i class="fas fa-check me-1"></i>Présent
+                                                            </button>
+                                                        </form>
+                                                        <form method="POST" action="attendTeacher.php" class="d-inline">
+                                                            <input type="hidden" name="teacher_id" value="<?= htmlspecialchars($teacher['id']) ?>">
+                                                            <input type="hidden" name="date" value="<?= htmlspecialchars($selected_date) ?>">
+                                                            <input type="hidden" name="course_id" value="<?= htmlspecialchars($course['course_id']) ?>">
+                                                            <input type="hidden" name="time_slot_id" value="<?= htmlspecialchars($course['slot_id'] ?? '') ?>">
+                                                            <input type="hidden" name="datetime" value="<?= htmlspecialchars($course_datetime) ?>">
+                                                            <input type="hidden" name="status" value="absent">
+                                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                                <i class="fas fa-times me-1"></i>Absent
+                                                            </button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">Déjà enregistré</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-
-                ' . (isset($_GET['success']) ? '<div class="alert alert-success mb-4">' . htmlspecialchars($_GET['success']) . '</div>' : '') . '
-                ' . (isset($_GET['error']) ? '<div class="alert alert-danger mb-4">' . htmlspecialchars($_GET['error']) . '</div>' : '') . '
-
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Action</th>
-                                        <th>ID</th>
-                                        <th>Nom</th>
-                                        <th>Téléphone</th>
-                                        <th>Email</th>
-                                        <th>Classes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                <div id="status-message" class="alert d-none mb-3"></div>';
-
-if ($result->num_rows > 0) {
-    while ($row = $result->fetch_assoc()) {
-        $content .= '
-        <tr>
-            <td>
-                <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-success btn-sm mark-attendance" data-id="' . htmlspecialchars($row['id']) . '" data-status="present">
-                        Présent
-                    </button>
-                    <button type="button" class="btn btn-danger btn-sm mark-attendance" data-id="' . htmlspecialchars($row['id']) . '" data-status="absent">
-                        Absent
-                    </button>
-                </div>
-            </td>
-            <td>' . htmlspecialchars($row['id']) . '</td>
-            <td>' . htmlspecialchars($row['name']) . '</td>
-            <td>' . htmlspecialchars($row['phone'] ?? '') . '</td>
-            <td>' . htmlspecialchars($row['email'] ?? '') . '</td>
-            <td>' . htmlspecialchars($row['classes'] ?? 'Aucune classe') . '</td>
-        </tr>';
-    }
-} else {
-    $content .= '
-    <tr>
-        <td colspan="6" class="text-center text-muted">
-            Tous les enseignants ont été marqués pour aujourd\'hui
-        </td>
-    </tr>';
-}
-
-$content .= '
-                                </tbody>
-                            </table>
-                        </div>
+                <?php else: ?>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>Aucun enseignant trouvé.
                     </div>
-                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
     <script>
-        // Redirection après un délai si un message de succès est présent
-        if (document.querySelector(".alert-success")) {
-            setTimeout(function() {
-                window.location.href = "teacherAttendance.php";
-            }, 3000);
-        }
-    </script>';
-
-$content .= '<script>
-    // Gestion des boutons de présence/absence avec AJAX
-    document.addEventListener("DOMContentLoaded", function() {
-        const statusMessage = document.getElementById("status-message");
-        
-        // Ajouter des écouteurs d\'\u00e9vénements à tous les boutons de présence/absence
-        document.querySelectorAll(".mark-attendance").forEach(button => {
-            button.addEventListener("click", function() {
-                const teacherId = this.getAttribute("data-id");
-                const status = this.getAttribute("data-status");
-                const row = this.closest("tr");
-                
-                // Désactiver les boutons pendant le traitement
-                const buttons = row.querySelectorAll("button");
-                buttons.forEach(btn => btn.disabled = true);
-                
-                // Afficher un indicateur de chargement
-                statusMessage.textContent = "Traitement en cours...";
-                statusMessage.className = "alert alert-info mb-3";
-                
-                // Envoyer la requête AJAX
-                fetch("attendTeacher.php", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded",
-                    },
-                    body: "ajax=1&id=" + encodeURIComponent(teacherId) + "&status=" + encodeURIComponent(status)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    // Afficher le message de réponse
-                    statusMessage.textContent = data.message;
-                    statusMessage.className = data.success ? "alert alert-success mb-3" : "alert alert-danger mb-3";
-                    
-                    // Si succès, supprimer la ligne du tableau après un court délai
-                    if (data.success) {
-                        setTimeout(() => {
-                            row.style.transition = "opacity 0.5s";
-                            row.style.opacity = "0";
-                            setTimeout(() => {
-                                row.remove();
-                                
-                                // Vérifier s\'il reste des enseignants dans le tableau
-                                const remainingRows = document.querySelectorAll("tbody tr");
-                                if (remainingRows.length === 0) {
-                                    const tbody = document.querySelector("tbody");
-                                    tbody.innerHTML = "<tr><td colspan=\"6\" class=\"text-center text-muted\">Tous les enseignants ont été marqués pour aujourd\'hui</td></tr>";
-                                }
-                                
-                                // Masquer le message après un délai
-                                setTimeout(() => {
-                                    statusMessage.className = "alert d-none mb-3";
-                                }, 3000);
-                            }, 500);
-                        }, 1000);
-                    } else {
-                        // Réactiver les boutons en cas d\'erreur
-                        buttons.forEach(btn => btn.disabled = false);
-                    }
-                })
-                .catch(error => {
-                    console.error("Erreur:", error);
-                    statusMessage.textContent = "Erreur de communication avec le serveur";
-                    statusMessage.className = "alert alert-danger mb-3";
-                    // Réactiver les boutons en cas d\'erreur
-                    buttons.forEach(btn => btn.disabled = false);
-                });
-            });
+        // Rediriger quand la date change
+        document.getElementById('date-selector').addEventListener('change', function() {
+            window.location.href = 'teacherAttendance.php?date=' + this.value;
         });
-    });
-</script>
+    </script>
 </body>
-</html>';
+</html>
 
+<?php
+$content = ob_get_clean();
 include('templates/layout.php');
 ?>
