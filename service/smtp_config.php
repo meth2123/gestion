@@ -120,19 +120,18 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
         }
         
         require_once(__DIR__ . '/../vendor/autoload.php');
-        use PHPMailer\PHPMailer\PHPMailer;
-        use PHPMailer\PHPMailer\Exception;
         
         $smtp_config = get_smtp_config();
         $smtp_password = get_clean_smtp_password();
         
-        $mail = new PHPMailer(true);
+        // Utiliser les noms complets des classes (pas besoin de use dans une fonction)
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
         $mail->isSMTP();
         $mail->Host = $smtp_config['host'];
         $mail->SMTPAuth = true;
         $mail->Username = $smtp_config['username'];
         $mail->Password = $smtp_password;
-        $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = $smtp_config['port'];
         $mail->CharSet = 'UTF-8';
         
@@ -150,7 +149,7 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
         
         return ['success' => true, 'message' => 'Email envoyé avec succès via SMTP'];
         
-    } catch (Exception $e) {
+    } catch (\PHPMailer\PHPMailer\Exception $e) {
         error_log("SMTP Error: " . $e->getMessage());
         return [
             'success' => false,
