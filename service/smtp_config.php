@@ -56,32 +56,21 @@ function get_clean_smtp_password() {
  * 
  * @param PHPMailer $mail Instance de PHPMailer à configurer
  */
+/**
+ * DÉPRÉCIÉ : SMTP a été complètement supprimé
+ * Cette fonction est conservée uniquement pour compatibilité mais ne fait rien
+ * 
+ * @param mixed $mail (ignoré)
+ * @deprecated Utilisez Resend uniquement via send_email_unified()
+ */
 function configure_smtp_for_render($mail) {
-    // Options SMTP améliorées pour Render.com
-    $mail->SMTPOptions = [
-        'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true,
-            'crypto_method' => STREAM_CRYPTO_METHOD_TLS_CLIENT
-        ]
-    ];
-    
-    // Timeouts augmentés pour Render.com (connexions peuvent être lentes)
-    $mail->Timeout = 60; // Timeout général de 60 secondes pour Render.com
-    $mail->SMTPKeepAlive = false;
-    $mail->SMTPAutoTLS = true;
-    $mail->SMTPDebug = 0; // Désactiver le debug en production (mettre à 2 pour debug)
-    
-    // Timeout de connexion spécifique (si supporté par PHPMailer)
-    if (property_exists($mail, 'SMTPConnectTimeout')) {
-        $mail->SMTPConnectTimeout = 30;
-    }
+    // SMTP supprimé - cette fonction ne fait rien
+    error_log("⚠️ configure_smtp_for_render() appelée mais SMTP est supprimé. Utilisez Resend uniquement.");
 }
 
 /**
- * Envoie un email en utilisant Resend (si configuré) ou SMTP (fallback)
- * Cette fonction unifie l'envoi d'emails dans toute l'application
+ * Envoie un email en utilisant UNIQUEMENT Resend
+ * SMTP a été complètement supprimé - Resend est maintenant obligatoire
  * 
  * @param string $to_email Email du destinataire
  * @param string $to_name Nom du destinataire
@@ -94,68 +83,25 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
     // Charger le service Resend
     require_once(__DIR__ . '/resend_service.php');
     
-    // Vérifier si Resend est configuré (priorité)
-    if (is_resend_configured()) {
-        error_log("✅ Resend API configured - Using Resend API for email to: $to_email");
-        $result = send_email_via_resend($to_email, $to_name, $subject, $html_body, $text_body);
-        
-        if ($result['success']) {
-            return ['success' => true, 'message' => $result['message']];
-        } else {
-            // Si Resend échoue, essayer SMTP en fallback
-            error_log("❌ Resend failed, falling back to SMTP: " . $result['message']);
-        }
-    } else {
-        error_log("⚠️ RESEND_API_KEY not configured - Using SMTP (PHPMailer) for email to: $to_email");
-    }
-    
-    // Fallback vers SMTP (PHPMailer)
-    error_log("Using SMTP (PHPMailer) for email to: $to_email");
-    
-    try {
-        // Vérifier si PHPMailer est disponible
-        if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
-            return [
-                'success' => false,
-                'message' => 'PHPMailer non installé. Faites composer install dans le dossier racine.'
-            ];
-        }
-        
-        require_once(__DIR__ . '/../vendor/autoload.php');
-        
-        $smtp_config = get_smtp_config();
-        $smtp_password = get_clean_smtp_password();
-        
-        // Utiliser les noms complets des classes (pas besoin de use dans une fonction)
-        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host = $smtp_config['host'];
-        $mail->SMTPAuth = true;
-        $mail->Username = $smtp_config['username'];
-        $mail->Password = $smtp_password;
-        $mail->SMTPSecure = $smtp_config['encryption'] === 'ssl' ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = $smtp_config['port'];
-        $mail->CharSet = 'UTF-8';
-        
-        // Configurer les options SMTP optimisées pour Render.com
-        configure_smtp_for_render($mail);
-        
-        $mail->setFrom($smtp_config['from_email'], $smtp_config['from_name']);
-        $mail->addAddress($to_email, $to_name);
-        $mail->isHTML(true);
-        $mail->Subject = $subject;
-        $mail->Body = $html_body;
-        $mail->AltBody = $text_body ?: strip_tags($html_body);
-        
-        $mail->send();
-        
-        return ['success' => true, 'message' => 'Email envoyé avec succès via SMTP'];
-        
-    } catch (\PHPMailer\PHPMailer\Exception $e) {
-        error_log("SMTP Error: " . $e->getMessage());
+    // Vérifier si Resend est configuré (OBLIGATOIRE)
+    if (!is_resend_configured()) {
+        error_log("❌ ERREUR CRITIQUE: RESEND_API_KEY non configurée dans les variables d'environnement");
         return [
             'success' => false,
-            'message' => 'Erreur SMTP: ' . $e->getMessage()
+            'message' => 'RESEND_API_KEY non configurée. Veuillez configurer RESEND_API_KEY dans les variables d\'environnement sur Render.com. SMTP a été supprimé, seul Resend est supporté.'
+        ];
+    }
+    
+    error_log("✅ Using Resend API for email to: $to_email");
+    $result = send_email_via_resend($to_email, $to_name, $subject, $html_body, $text_body);
+    
+    if ($result['success']) {
+        return ['success' => true, 'message' => $result['message']];
+    } else {
+        error_log("❌ Resend API Error: " . $result['message']);
+        return [
+            'success' => false,
+            'message' => 'Erreur Resend API: ' . $result['message']
         ];
     }
 }
