@@ -48,28 +48,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['justify'])) {
     $student_id = $_POST['student_id'] ?? '';
     $date = $_POST['date'] ?? '';
     $course_time = $_POST['course_time'] ?? '';
+    $justification = trim($_POST['justification'] ?? '');
     
     if ($student_id && $date && $course_time) {
-        // Vérifier si une entrée existe déjà
-        $check_query = "SELECT id FROM attendance WHERE CAST(attendedid AS CHAR) = CAST(? AS CHAR) AND DATE(datetime) = ? AND TIME(datetime) = ?";
-        $existing = db_fetch_row($check_query, [$student_id, $date, $course_time], 'sss');
+        // Construire le datetime complet à partir de la date et de l'heure du cours
+        $datetime = $date . ' ' . $course_time;
         
-        // Obtenir l'heure actuelle au format HH:MM:SS
-        $current_time = date('H:i:s');
-        $datetime = $date . ' ' . $current_time;
+        // Vérifier si une entrée existe déjà dans student_attendance
+        $check_query = "SELECT id, course_id, class_id FROM student_attendance 
+                       WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR) 
+                       AND DATE(datetime) = DATE(?) 
+                       AND TIME(datetime) = TIME(?)";
+        $existing = db_fetch_row($check_query, [$student_id, $datetime, $datetime], 'sss');
         
         if ($existing) {
-            // Mettre à jour l'entrée existante avec l'heure actuelle
-            $update_query = "UPDATE attendance SET datetime = ? WHERE CAST(id AS CHAR) = CAST(? AS CHAR)";
-            db_execute($update_query, [$datetime, $existing['id']], 'ss');
+            // Mettre à jour l'entrée existante avec le commentaire de justification
+            // Le statut reste 'absent' ou 'late', mais le commentaire indique que c'est justifié
+            $update_query = "UPDATE student_attendance 
+                           SET comment = ?, 
+                               updated_at = NOW()
+                           WHERE CAST(id AS CHAR) = CAST(? AS CHAR)";
+            db_execute($update_query, [$justification, $existing['id']], 'si');
         } else {
-            // Créer une nouvelle entrée avec l'heure actuelle
-            $insert_query = "INSERT INTO attendance (datetime, attendedid, person_type, status) VALUES (?, ?, 'student', 'present')";
-            db_execute($insert_query, [$datetime, $student_id], 'ss');
+            // Si l'absence n'existe pas dans student_attendance, on ne peut pas la justifier
+            // car elle n'a pas été enregistrée par l'enseignant
+            header("Location: viewAttendance.php?error=" . urlencode("Cette absence n'existe pas dans le système. Elle doit d'abord être enregistrée par l'enseignant."));
+            exit();
         }
         
         // Rediriger pour éviter la soumission multiple
-        header("Location: viewAttendance.php?success=1");
+        header("Location: viewAttendance.php?success=" . urlencode("Absence justifiée avec succès"));
         exit();
     }
 }

@@ -97,35 +97,58 @@ if ($check_table) {
 // Déterminer les dates de début et fin du semestre
 $semester_start = null;
 $semester_end = null;
+$current_year = date('Y');
+$current_month = (int)date('m');
+
 if ($period == '1') {
-    // Premier semestre : septembre à janvier
-    $semester_start = date('Y') . '-09-01';
-    $semester_end = date('Y') . '-01-31';
-    // Si on est après janvier, utiliser l'année précédente pour le début
-    if (date('m') > 1) {
-        $semester_start = (date('Y') - 1) . '-09-01';
+    // Premier semestre : septembre de l'année précédente à janvier de l'année actuelle
+    // Si on est entre janvier et août, le semestre 1 est de septembre de l'année précédente à janvier de l'année actuelle
+    // Si on est entre septembre et décembre, le semestre 1 est de septembre de l'année actuelle à janvier de l'année suivante
+    if ($current_month >= 9) {
+        // On est en septembre-décembre, le semestre 1 commence en septembre de cette année
+        $semester_start = $current_year . '-09-01';
+        $semester_end = ($current_year + 1) . '-01-31';
+    } else {
+        // On est en janvier-août, le semestre 1 était de septembre de l'année précédente à janvier de cette année
+        $semester_start = ($current_year - 1) . '-09-01';
+        $semester_end = $current_year . '-01-31';
     }
 } elseif ($period == '2') {
     // Deuxième semestre : février à juin
-    $semester_start = date('Y') . '-02-01';
-    $semester_end = date('Y') . '-06-30';
+    // Si on est entre février et juin, le semestre 2 est de février à juin de cette année
+    // Si on est entre juillet et janvier, le semestre 2 était de février à juin de cette année (ou l'année précédente si on est en janvier)
+    if ($current_month >= 2 && $current_month <= 6) {
+        $semester_start = $current_year . '-02-01';
+        $semester_end = $current_year . '-06-30';
+    } elseif ($current_month == 1) {
+        // En janvier, le semestre 2 était de février à juin de l'année précédente
+        $semester_start = ($current_year - 1) . '-02-01';
+        $semester_end = ($current_year - 1) . '-06-30';
+    } else {
+        // En juillet-août, le semestre 2 était de février à juin de cette année
+        $semester_start = $current_year . '-02-01';
+        $semester_end = $current_year . '-06-30';
+    }
 } else {
     // Par défaut, utiliser les 30 derniers jours
     $semester_start = date('Y-m-d', strtotime('-30 days'));
     $semester_end = date('Y-m-d');
 }
 
-// Récupérer les absences (status = 'absent' ou 'late')
+// Récupérer TOUTES les absences enregistrées pour cet élève dans cette classe pour la période du semestre
+// Chaque absence enregistrée par l'enseignant doit apparaître dans le bulletin
 $absences_query = "
 SELECT 
     DATE_FORMAT(sa.datetime, '%d/%m/%Y') as date,
     TIME(sa.datetime) as course_time,
-    c.name as course_name,
-    t.name as teacher_name,
+    COALESCE(c.name, 'Cours supprimé') as course_name,
+    COALESCE(t.name, 'Professeur non assigné') as teacher_name,
     sa.status,
-    sa.comment
+    sa.comment,
+    sa.datetime as raw_datetime,
+    DATE(sa.datetime) as absence_date
 FROM student_attendance sa
-JOIN course c ON sa.course_id = c.id
+LEFT JOIN course c ON sa.course_id = c.id
 LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
 WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
 AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
@@ -135,11 +158,23 @@ AND DATE(sa.datetime) <= ?
 ORDER BY sa.datetime DESC";
 
 $stmt = $conn->prepare($absences_query);
-$stmt->bind_param("ssss", $student_id, $class_id, $semester_start, $semester_end);
-$stmt->execute();
-$absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+if (!$stmt) {
+    error_log("Erreur de préparation de la requête absences: " . $conn->error);
+    $absences = [];
+} else {
+    $stmt->bind_param("ssss", $student_id, $class_id, $semester_start, $semester_end);
+    if (!$stmt->execute()) {
+        error_log("Erreur d'exécution de la requête absences: " . $stmt->error);
+        $absences = [];
+    } else {
+        $absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        error_log("Nombre d'absences récupérées pour l'élève $student_id, classe $class_id, période $semester_start à $semester_end: " . count($absences));
+    }
+    $stmt->close();
+}
 
 // Calculer les statistiques d'absence
+// Chaque absence enregistrée par l'enseignant compte comme 1 absence
 $total_absences = count($absences);
 $justified_absences = 0;
 $unjustified_absences = 0;
@@ -152,6 +187,11 @@ foreach ($absences as $absence) {
         $unjustified_absences++;
     }
 }
+
+// Log pour déboguer
+error_log("Bulletin - Élève: $student_id, Classe: $class_id, Période: $period");
+error_log("Bulletin - Dates semestre: $semester_start à $semester_end");
+error_log("Bulletin - Total absences trouvées: $total_absences (justifiées: $justified_absences, non justifiées: $unjustified_absences)");
 
 // Pré-traitement pour éliminer les doublons d'examens
 $filtered_grades = [];
