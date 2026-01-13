@@ -47,8 +47,12 @@ function getUnpaidStudents($month = null, $year = null, $class_id = null, $statu
     if ($year === null) $year = getCurrentSchoolYear();
     
     // Calculer le nombre de mois en retard par rapport au mois sélectionné
-    $current_month = date('n');
-    $current_year = date('Y');
+    $current_month = (int)date('n');
+    $current_year = (int)date('Y');
+    
+    // S'assurer que $month et $year sont des entiers
+    $month = (int)$month;
+    $year = (int)$year;
     
     // Calculer la différence en mois
     $selected_timestamp = mktime(0, 0, 0, $month, 1, $year);
