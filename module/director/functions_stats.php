@@ -279,9 +279,9 @@ function get_total_salaries_current_month() {
     $total = 0;
 
     // Enseignants
-    $sql = "SELECT COALESCE(th.final_salary, ROUND(t.salary * COUNT(a.date) / ?)) AS to_pay
+    $sql = "SELECT COALESCE(th.final_salary, ROUND(t.salary * COUNT(DATE(a.datetime)) / ?)) AS to_pay
             FROM teachers t
-            LEFT JOIN attendance a ON t.id = a.attendedid AND MONTH(a.date) = ? AND YEAR(a.date) = ?
+            LEFT JOIN attendance a ON t.id = a.attendedid AND MONTH(a.datetime) = ? AND YEAR(a.datetime) = ? AND a.person_type = 'teacher'
             LEFT JOIN teacher_salary_history th ON t.id = th.teacher_id AND th.month = ? AND th.year = ?
             WHERE t.created_by = ?
             GROUP BY t.id";
@@ -294,9 +294,9 @@ function get_total_salaries_current_month() {
     }
 
     // Personnel
-    $sql = "SELECT COALESCE(sh.final_salary, ROUND(s.salary * COUNT(a.date) / ?)) AS to_pay
+    $sql = "SELECT COALESCE(sh.final_salary, ROUND(s.salary * COUNT(DATE(a.datetime)) / ?)) AS to_pay
             FROM staff s
-            LEFT JOIN attendance a ON s.id = a.attendedid AND MONTH(a.date) = ? AND YEAR(a.date) = ?
+            LEFT JOIN attendance a ON s.id = a.attendedid AND MONTH(a.datetime) = ? AND YEAR(a.datetime) = ? AND a.person_type = 'staff'
             LEFT JOIN staff_salary_history sh ON s.id = sh.staff_id AND sh.month = ? AND sh.year = ?
             WHERE s.created_by = ?
             GROUP BY s.id";
@@ -330,9 +330,9 @@ function get_unpaid_salaries_current_month() {
     $total = 0;
 
     // Enseignants impayés
-    $sql = "SELECT COALESCE(th.final_salary, ROUND(t.salary * COUNT(a.date) / ?)) AS to_pay, th.payment_date
+    $sql = "SELECT COALESCE(th.final_salary, ROUND(t.salary * COUNT(DATE(a.datetime)) / ?)) AS to_pay, th.payment_date
             FROM teachers t
-            LEFT JOIN attendance a ON t.id = a.attendedid AND MONTH(a.date) = ? AND YEAR(a.date) = ?
+            LEFT JOIN attendance a ON t.id = a.attendedid AND MONTH(a.datetime) = ? AND YEAR(a.datetime) = ? AND a.person_type = 'teacher'
             LEFT JOIN teacher_salary_history th ON t.id = th.teacher_id AND th.month = ? AND th.year = ?
             WHERE t.created_by = ?
             GROUP BY t.id";
@@ -345,9 +345,9 @@ function get_unpaid_salaries_current_month() {
     }
 
     // Personnel impayé
-    $sql = "SELECT COALESCE(sh.final_salary, ROUND(s.salary * COUNT(a.date) / ?)) AS to_pay, sh.payment_date
+    $sql = "SELECT COALESCE(sh.final_salary, ROUND(s.salary * COUNT(DATE(a.datetime)) / ?)) AS to_pay, sh.payment_date
             FROM staff s
-            LEFT JOIN attendance a ON s.id = a.attendedid AND MONTH(a.date) = ? AND YEAR(a.date) = ?
+            LEFT JOIN attendance a ON s.id = a.attendedid AND MONTH(a.datetime) = ? AND YEAR(a.datetime) = ? AND a.person_type = 'staff'
             LEFT JOIN staff_salary_history sh ON s.id = sh.staff_id AND sh.month = ? AND sh.year = ?
             WHERE s.created_by = ?
             GROUP BY s.id";

@@ -59,15 +59,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_salary'])) {
                     ?,
                     ?,
                     t.salary as base_salary,
-                    COUNT(a.date),
-                    ? - COUNT(a.date),
-                    ROUND(t.salary * COUNT(a.date) / ?),
+                    COUNT(DISTINCT DATE(a.datetime)),
+                    ? - COUNT(DISTINCT DATE(a.datetime)),
+                    ROUND(t.salary * COUNT(DISTINCT DATE(a.datetime)) / ?),
                     CURDATE(),
                     ?
                 FROM teachers t
                 LEFT JOIN attendance a ON t.id = a.attendedid 
-                AND MONTH(a.date) = ?
-                AND YEAR(a.date) = ?
+                AND MONTH(a.datetime) = ?
+                AND YEAR(a.datetime) = ?
+                AND a.person_type = 'teacher'
                 WHERE t.id = ? AND t.created_by = ?
                 GROUP BY t.id, t.salary
                 ON DUPLICATE KEY UPDATE
@@ -84,15 +85,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pay_salary'])) {
                     ?,
                     ?,
                     s.salary as base_salary,
-                    COUNT(a.date),
-                    ? - COUNT(a.date),
-                    ROUND(s.salary * COUNT(a.date) / ?),
+                    COUNT(DISTINCT DATE(a.datetime)),
+                    ? - COUNT(DISTINCT DATE(a.datetime)),
+                    ROUND(s.salary * COUNT(DISTINCT DATE(a.datetime)) / ?),
                     CURDATE(),
                     ?
                 FROM staff s
                 LEFT JOIN attendance a ON s.id = a.attendedid 
-                AND MONTH(a.date) = ?
-                AND YEAR(a.date) = ?
+                AND MONTH(a.datetime) = ?
+                AND YEAR(a.datetime) = ?
+                AND a.person_type = 'staff'
                 WHERE s.id = ? AND s.created_by = ?
                 GROUP BY s.id, s.salary
                 ON DUPLICATE KEY UPDATE
@@ -131,14 +133,15 @@ $sql = "SELECT
     t.id, 
     t.name, 
     t.salary,
-    COALESCE(th.final_salary, ROUND(t.salary * COUNT(a.date) / ?)) AS currentmonthlysalary,
-    COALESCE(th.days_present, COUNT(a.date)) as present_days,
-    COALESCE(th.days_absent, ? - COUNT(a.date)) as absent_days,
+    COALESCE(th.final_salary, ROUND(t.salary * COUNT(DISTINCT DATE(a.datetime)) / ?)) AS currentmonthlysalary,
+    COALESCE(th.days_present, COUNT(DISTINCT DATE(a.datetime))) as present_days,
+    COALESCE(th.days_absent, ? - COUNT(DISTINCT DATE(a.datetime))) as absent_days,
     th.payment_date
 FROM teachers t
 LEFT JOIN attendance a ON t.id = a.attendedid 
-    AND MONTH(a.date) = ?
-    AND YEAR(a.date) = ?
+    AND MONTH(a.datetime) = ?
+    AND YEAR(a.datetime) = ?
+    AND a.person_type = 'teacher'
 LEFT JOIN teacher_salary_history th ON t.id = th.teacher_id 
     AND th.month = ?
     AND th.year = ?
@@ -164,14 +167,15 @@ $sql = "SELECT
     s.id, 
     s.name, 
     s.salary,
-    COALESCE(sh.final_salary, ROUND(s.salary * COUNT(a.date) / ?)) AS currentmonthlysalary,
-    COALESCE(sh.days_present, COUNT(a.date)) as present_days,
-    COALESCE(sh.days_absent, ? - COUNT(a.date)) as absent_days,
+    COALESCE(sh.final_salary, ROUND(s.salary * COUNT(DISTINCT DATE(a.datetime)) / ?)) AS currentmonthlysalary,
+    COALESCE(sh.days_present, COUNT(DISTINCT DATE(a.datetime))) as present_days,
+    COALESCE(sh.days_absent, ? - COUNT(DISTINCT DATE(a.datetime))) as absent_days,
     sh.payment_date
 FROM staff s
 LEFT JOIN attendance a ON s.id = a.attendedid 
-    AND MONTH(a.date) = ?
-    AND YEAR(a.date) = ?
+    AND MONTH(a.datetime) = ?
+    AND YEAR(a.datetime) = ?
+    AND a.person_type = 'staff'
 LEFT JOIN staff_salary_history sh ON s.id = sh.staff_id 
     AND sh.month = ?
     AND sh.year = ?
