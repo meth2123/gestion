@@ -1,23 +1,10 @@
 <?php
 /**
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
- * Configuration d'email centralisée - Resend uniquement
+ * Configuration d'email centralisée - Brevo (Sendinblue) uniquement
  * Utilisez ce fichier pour envoyer des emails dans tout le projet
  * Supporte les variables d'environnement pour Render.com et autres plateformes
  * 
- * IMPORTANT : Resend est maintenant le seul service d'email supporté
- * SMTP a été complètement supprimé
-=======
- * Configuration d'email centralisée - Brevo (Sendinblue)
- * Utilisez ce fichier pour envoyer des emails dans tout le projet
- * Supporte les variables d'environnement pour Render.com et autres plateformes
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
-=======
- * Configuration d'email centralisée - Brevo (Sendinblue)
- * Utilisez ce fichier pour envoyer des emails dans tout le projet
- * Supporte les variables d'environnement pour Render.com et autres plateformes
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
+ * IMPORTANT : Brevo est maintenant le seul service d'email supporté
  */
 
 // Fonction helper pour obtenir les variables d'environnement (compatible avec getenv et $_ENV)
@@ -68,12 +55,6 @@ if (!function_exists('getEnvVar')) {
 }
 
 /**
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
- * Envoie un email en utilisant UNIQUEMENT Resend
-=======
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
  * Vérifie si Brevo est configuré
  */
 function is_brevo_configured() {
@@ -82,11 +63,7 @@ function is_brevo_configured() {
 }
 
 /**
- * Envoie un email en utilisant Brevo (Sendinblue)
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
+ * Envoie un email en utilisant UNIQUEMENT Brevo (Sendinblue)
  * 
  * @param string $to_email Email du destinataire
  * @param string $to_name Nom du destinataire
@@ -96,43 +73,15 @@ function is_brevo_configured() {
  * @return array ['success' => bool, 'message' => string]
  */
 function send_email_unified($to_email, $to_name, $subject, $html_body, $text_body = null) {
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-    // Charger le service Resend
-    require_once(__DIR__ . '/resend_service.php');
-    
-    // Vérifier si Resend est configuré (OBLIGATOIRE)
-    if (!is_resend_configured()) {
-=======
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
     // Charger le service Brevo
     require_once(__DIR__ . '/brevo_service.php');
     
     // Vérifier si Brevo est configuré (OBLIGATOIRE)
     if (!is_brevo_configured()) {
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
         $env_file = __DIR__ . '/../.env';
         $env_exists = file_exists($env_file);
         $is_render = getenv('RENDER') === 'true' || getenv('IS_RENDER') === 'true';
         
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-        $message = 'RESEND_API_KEY non configurée. ';
-        if ($is_render) {
-            $message .= 'Sur Render.com, vérifiez que RESEND_API_KEY est bien définie dans les variables d\'environnement du dashboard. ';
-        } elseif (!$env_exists) {
-            $message .= 'Créez un fichier .env à la racine du projet avec RESEND_API_KEY=votre_clé_api. ';
-        } else {
-            $message .= 'Vérifiez que RESEND_API_KEY est bien définie dans le fichier .env. ';
-        }
-        $message .= 'Consultez ENV_SETUP.md pour plus d\'informations.';
-=======
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
         $message = 'BREVO_API_KEY non configurée. ';
         if ($is_render) {
             $message .= 'Sur Render.com, vérifiez que BREVO_API_KEY est bien définie dans les variables d\'environnement du dashboard. ';
@@ -142,49 +91,23 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
             $message .= 'Vérifiez que BREVO_API_KEY est bien définie dans le fichier .env. ';
         }
         $message .= 'Récupérez votre clé API depuis https://app.brevo.com/settings/keys/api';
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
+
         error_log("❌ ERREUR CRITIQUE: " . $message);
-=======
-        error_log("ERREUR CRITIQUE: " . $message);
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
         return [
             'success' => false,
             'message' => $message
         ];
     }
     
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
-    error_log("✅ Using Resend API for email to: $to_email");
-    $result = send_email_via_resend($to_email, $to_name, $subject, $html_body, $text_body);
-    
-    if ($result['success']) {
-        return ['success' => true, 'message' => $result['message']];
-    } else {
-        error_log("❌ Resend API Error: " . $result['message']);
-        return [
-            'success' => false,
-            'message' => 'Erreur Resend API: ' . $result['message']
-=======
     try {
         $brevo = new BrevoService();
         error_log("✅ Using Brevo API for email to: $to_email");
-=======
-    try {
-        $brevo = new BrevoService();
-        error_log("Using Brevo API for email to: $to_email");
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
         $result = $brevo->sendEmail($to_email, $to_name, $subject, $html_body, $text_body);
         
         if ($result['success']) {
             return ['success' => true, 'message' => $result['message']];
         } else {
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
             error_log("❌ Brevo API Error: " . $result['message']);
-=======
-            error_log("Brevo API Error: " . $result['message']);
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
             return [
                 'success' => false,
                 'message' => 'Erreur Brevo API: ' . $result['message']
@@ -192,18 +115,7 @@ function send_email_unified($to_email, $to_name, $subject, $html_body, $text_bod
         }
         
     } catch (Exception $e) {
-<<<<<<< C:\wamp64\www\gestion\service\email_config.php
         error_log("❌ Brevo Service Error: " . $e->getMessage());
-        return [
-            'success' => false,
-            'message' => 'Erreur Brevo Service: ' . $e->getMessage()
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
-        ];
-    }
-}
-
-=======
-        error_log("Brevo Service Error: " . $e->getMessage());
         return [
             'success' => false,
             'message' => 'Erreur Brevo Service: ' . $e->getMessage()
@@ -223,6 +135,7 @@ function test_brevo_config() {
     }
     
     try {
+        require_once(__DIR__ . '/brevo_service.php');
         $brevo = new BrevoService();
         return $brevo->testConnection();
     } catch (Exception $e) {
@@ -233,4 +146,3 @@ function test_brevo_config() {
     }
 }
 ?>
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\service\email_config.php
