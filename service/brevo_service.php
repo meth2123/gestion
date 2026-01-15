@@ -6,7 +6,7 @@ class BrevoService {
     
     public function __construct() {
         $this->api_key = getenv('BREVO_API_KEY');
-        $this->from_email = getenv('BREVO_EMAIL') ?: 'noreply@schoolmanager.com';
+        $this->from_email = getenv('BREVO_EMAIL') ?: 'methndiaye43@gmail.com';
         $this->from_name = getenv('BREVO_NAME') ?: 'SchoolManager';
         
         if (empty($this->api_key)) {
@@ -16,6 +16,11 @@ class BrevoService {
     
     public function sendEmail($to_email, $to_name, $subject, $html_content, $text_content = null) {
         try {
+            // CORRECTION : Si le nom est vide, utiliser l'email comme nom
+            if (empty($to_name) || trim($to_name) === '') {
+                $to_name = $to_email;
+            }
+            
             $url = 'https://api.brevo.com/v3/smtp/email';
             
             $data = [
@@ -37,6 +42,10 @@ class BrevoService {
             if ($text_content) {
                 $data['textContent'] = $text_content;
             }
+            
+            // Log pour debug
+            error_log("📧 Envoi email Brevo à: $to_email (nom: $to_name)");
+            error_log("📧 Données JSON: " . json_encode($data));
             
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -62,7 +71,7 @@ class BrevoService {
             $result = json_decode($response, true);
             
             if ($http_code >= 200 && $http_code < 300) {
-                error_log("Email Brevo envoyé avec succès à $to_email");
+                error_log("✅ Email Brevo envoyé avec succès à $to_email (Message ID: " . ($result['messageId'] ?? 'N/A') . ")");
                 return [
                     'success' => true,
                     'message' => 'Email envoyé avec succès',
@@ -70,11 +79,13 @@ class BrevoService {
                 ];
             } else {
                 $error_message = $result['message'] ?? 'Erreur inconnue';
+                error_log("❌ Erreur API Brevo ($http_code): $error_message");
+                error_log("❌ Réponse complète: " . $response);
                 throw new Exception("Erreur API Brevo ($http_code): $error_message");
             }
             
         } catch (Exception $e) {
-            error_log("Erreur lors de l'envoi d'email Brevo: " . $e->getMessage());
+            error_log("❌ Erreur lors de l'envoi d'email Brevo: " . $e->getMessage());
             return [
                 'success' => false,
                 'message' => $e->getMessage()
