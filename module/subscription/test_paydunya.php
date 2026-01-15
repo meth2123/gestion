@@ -12,6 +12,29 @@ function displayInfo($title, $data) {
 }
 
 try {
+<<<<<<< C:\wamp64\www\gestion\module\subscription\test_paydunya.php
+=======
+    // Afficher les informations de configuration d'environnement
+    echo "<h2>Variables d'Environnement</h2>";
+    echo "<table border='1' style='border-collapse: collapse; margin: 10px 0;'>";
+    echo "<tr><th>Variable</th><th>Statut</th><th>Valeur (tronquée)</th></tr>";
+    
+    $env_vars = [
+        'APP_URL' => getenv('APP_URL'),
+        'PAYDUNYA_MASTER_KEY' => getenv('PAYDUNYA_MASTER_KEY'),
+        'PAYDUNYA_PUBLIC_KEY' => getenv('PAYDUNYA_PUBLIC_KEY'),
+        'PAYDUNYA_PRIVATE_KEY' => getenv('PAYDUNYA_PRIVATE_KEY'),
+        'PAYDUNYA_TOKEN' => getenv('PAYDUNYA_TOKEN')
+    ];
+    
+    foreach ($env_vars as $key => $value) {
+        $status = $value ? "✅ Définie" : "❌ Non définie";
+        $display_value = $value ? substr($value, 0, 15) . '...' : 'N/A';
+        echo "<tr><td>$key</td><td>$status</td><td>$display_value</td></tr>";
+    }
+    echo "</table>";
+    
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\module\subscription\test_paydunya.php
     // Initialiser le service PayDunya
     $paydunya = new PayDunyaService($link);
     
@@ -19,6 +42,21 @@ try {
     echo "<h2>Configuration PayDunya</h2>";
     echo "<p>Mode: " . ($paydunya->getMode() === 'test' ? 'Test' : 'Production') . "</p>";
     
+<<<<<<< C:\wamp64\www\gestion\module\subscription\test_paydunya.php
+=======
+    // Afficher la configuration brute
+    $config = require __DIR__ . '/../../service/paydunya_env.php';
+    echo "<h3>Détails de la configuration</h3>";
+    echo "<pre>";
+    echo "Website URL: " . $config['store']['website_url'] . "\n";
+    echo "Callback URL: " . $config['store']['callback_url'] . "\n";
+    echo "Master Key: " . substr($config['api_keys']['master_key'], 0, 15) . "...\n";
+    echo "Public Key: " . substr($config['api_keys']['public_key'], 0, 15) . "...\n";
+    echo "Private Key: " . substr($config['api_keys']['private_key'], 0, 15) . "...\n";
+    echo "Token: " . substr($config['api_keys']['token'], 0, 15) . "...\n";
+    echo "</pre>";
+    
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-df691a30\module\subscription\test_paydunya.php
     // Afficher les méthodes de paiement disponibles
     echo "<h3>Méthodes de Paiement</h3>";
     echo "<ul>";
