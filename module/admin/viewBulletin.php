@@ -239,21 +239,11 @@ foreach ($filtered_grades as $grade) {
 // Calculer la moyenne générale
 $total_points = 0;
 $total_course_coefficients = 0;
-$weighted_details = []; 
-
-foreach ($course_averages as $course_name => $course) {
+foreach ($course_averages as $course) {
     if ($course['total_coefficients'] > 0) {
         $course_average = $course['total_points'] / $course['total_coefficients'];
-        $weighted_contribution = $course_average * $course['course_coefficient'];
-        $total_points += $weighted_contribution;
+        $total_points += $course_average * $course['course_coefficient'];
         $total_course_coefficients += $course['course_coefficient'];
-        
-        $weighted_details[] = [
-            'course_name' => $course_name,
-            'average' => $course_average,
-            'coefficient' => $course['course_coefficient'],
-            'contribution' => $weighted_contribution
-        ];
     }
 }
 
@@ -442,60 +432,6 @@ foreach ($course_averages as $course_name => $course) {
 $content .= '
                     </tbody>
                 </table>
-            </div>
-        </div>
-
-        <!-- Calcul de la moyenne pondérée -->
-        <div class="card mb-4 bg-info bg-opacity-10">
-            <div class="card-body">
-                <h2 class="h5 mb-3">
-                    <i class="fas fa-calculator me-2"></i>
-                    Détail du calcul de la moyenne pondérée
-                </h2>
-                
-                <div class="table-responsive">
-                    <table class="table table-sm mb-3">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Matière</th>
-                                <th>Moyenne</th>
-                                <th>Coefficient</th>
-                                <th>Contribution</th>
-                            </tr>
-                        </thead>
-                       <tbody>';
-
-// Ajouter les détails de chaque matière
-foreach ($weighted_details as $detail) {
-    $content .= '
-                            <tr>
-                                <td>' . safe_html($detail['course_name']) . '</td>
-                                <td>' . number_format($detail['average'], 2) . '/20</td>
-                                <td>' . safe_html($detail['coefficient']) . '</td>
-                                <td>' . number_format($detail['contribution'], 2) . ' 
-                                    <small class="text-muted">
-                                        (= ' . number_format($detail['average'], 2) . ' × ' . 
-                                        $detail['coefficient'] . ')
-                                    </small>
-                                </td>
-                            </tr>';
-}
-
-$content .= '
-                        </tbody>
-                        </tbody>
-                    </table>
-                    
-                    <div class="alert alert-info mb-0">
-                        <strong><i class="fas fa-info-circle me-2"></i>Formule :</strong> 
-                        Moyenne pondérée = 
-                        <strong><?php echo number_format($total_points, 2); ?></strong> ÷ 
-                        <strong><?php echo number_format($total_course_coefficients, 2); ?></strong> = 
-                        <strong class="<?php echo $mention_color; ?>">
-                            <?php echo number_format($general_average, 2); ?>/20
-                        </strong>
-                    </div>
-                </div>
             </div>
         </div>
 
