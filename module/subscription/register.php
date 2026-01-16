@@ -170,6 +170,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>SchoolManager - Inscription</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "b8c9e82f-be11-439a-a5fc-fd1b39558736",
+    });
+  });
+</script>
+
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
