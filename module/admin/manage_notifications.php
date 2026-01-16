@@ -3,23 +3,9 @@
 include_once('main.php'); // Inclure main.php en premier (charge mysqlcon.php)
 require_once __DIR__ . '/../../service/NotificationService.php';
 require_once __DIR__ . '/../../service/AuthService.php';
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-=======
-require_once __DIR__ . '/../../service/PushNotificationService.php';
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-=======
-require_once __DIR__ . '/../../service/PushNotificationService.php';
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-
-// Vérifier si l'utilisateur est connecté et est un administrateur
-
-=======
 require_once __DIR__ . '/../../service/PushNotificationService.php';
 
 // Vérifier si l'utilisateur est connecté et est un administrateur
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
 // S'assurer que $link est disponible
 global $link;
 if ($link === null || !$link) {
@@ -64,18 +50,11 @@ try {
 // Réactiver les contraintes de clé étrangère
 $link->query("SET FOREIGN_KEY_CHECKS = 1");
 
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-// Traiter l'ajout d'une nouvelle notification
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $notificationService = new NotificationService($link, $_SESSION['login_id'], 'admin');
-    
-=======
 // Initialiser le service de notification
 $notificationService = new NotificationService($link, $_SESSION['login_id'], 'admin');
 
 // Traiter l'ajout d'une nouvelle notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     // Initialiser le service de notification push
     $pushService = new PushNotificationService($link);
     $pushService->setupDatabase();
@@ -180,124 +159,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     exit;
 }
 
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-// Récupérer les utilisateurs pour le formulaire
-$users = [
-    'teacher' => [],
-    'student' => [],
-    'parent' => []
-];
-
-// Récupérer les enseignants créés par cet administrateur
-$stmt = $link->prepare("SELECT id, name FROM teachers WHERE created_by = ? OR created_by = 'admin_default'");
-$stmt->bind_param("s", $_SESSION['login_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-
-while ($row = $result->fetch_assoc()) {
-    $users['teacher'][] = $row;
-}
-
-// Récupérer les élèves créés par cet administrateur
-$stmt = $link->prepare("SELECT id, name FROM students WHERE created_by = ? OR created_by = 'admin_default'");
-$stmt->bind_param("s", $_SESSION['login_id']);
-$stmt->execute();
-$result = $stmt->get_result();
-
-while ($row = $result->fetch_assoc()) {
-    $users['student'][] = $row;
-}
-
-// Récupérer les parents
-$stmt = $link->prepare("SELECT id, CONCAT(fathername, ' / ', mothername) as name FROM parents");
-$stmt->execute();
-$result = $stmt->get_result();
-
-while ($row = $result->fetch_assoc()) {
-    $users['parent'][] = $row;
-}
-
-// Pagination pour les notifications existantes
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$per_page = 20;
-$offset = ($page - 1) * $per_page;
-
-// Récupérer toutes les notifications
-$stmt = $link->prepare("
-    SELECT n.*, 
-           CASE 
-               WHEN n.user_type = 'admin' THEN a.name
-               WHEN n.user_type = 'teacher' THEN t.name
-               WHEN n.user_type = 'student' THEN s.name
-               WHEN n.user_type = 'parent' THEN CONCAT(p.fathername, ' / ', p.mothername)
-           END as user_name,
-           a2.name as created_by_name
-    FROM notifications n
-    LEFT JOIN admin a ON n.user_type = 'admin' AND n.user_id = a.id
-    LEFT JOIN teachers t ON n.user_type = 'teacher' AND n.user_id = t.id
-    LEFT JOIN students s ON n.user_type = 'student' AND n.user_id = s.id
-    LEFT JOIN parents p ON n.user_type = 'parent' AND n.user_id = p.id
-    LEFT JOIN admin a2 ON n.created_by = a2.id
-    WHERE n.created_by = ? OR 
-          (n.user_type = 'teacher' AND t.created_by = ?) OR 
-          (n.user_type = 'student' AND s.created_by = ?)
-    ORDER BY n.created_at DESC
-    LIMIT ? OFFSET ?
-");
-$stmt->bind_param("sssii", $_SESSION['login_id'], $_SESSION['login_id'], $_SESSION['login_id'], $per_page, $offset);
-$stmt->execute();
-$notifications = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-// Compter le total des notifications pour cet administrateur
-$stmt = $link->prepare("
-    SELECT COUNT(*) as count 
-    FROM notifications n
-    LEFT JOIN teachers t ON n.user_type = 'teacher' AND n.user_id = t.id
-    LEFT JOIN students s ON n.user_type = 'student' AND n.user_id = s.id
-    WHERE n.created_by = ? OR 
-          (n.user_type = 'teacher' AND t.created_by = ?) OR 
-          (n.user_type = 'student' AND s.created_by = ?)
-");
-$stmt->bind_param("sss", $_SESSION['login_id'], $_SESSION['login_id'], $_SESSION['login_id']);
-$stmt->execute();
-$total_notifications = $stmt->get_result()->fetch_assoc()['count'];
-$total_pages = ceil($total_notifications / $per_page);
-
-// Définir le titre de la page
-$page_title = "Gestion des Notifications";
-?>
-
-=======
 // Récupérer toutes les notifications
 $notifications = $notificationService->getAllNotifications();
 ?>
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-=======
-// Récupérer toutes les notifications
-$notifications = $notificationService->getAllNotifications();
-?>
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Notifications</title>
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-=======
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-=======
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     <style>
         .notification-card {
             transition: all 0.2s ease;
@@ -331,10 +204,7 @@ $notifications = $notificationService->getAllNotifications();
         <div class="row mb-4">
             <div class="col">
                 <h1 class="h3 mb-0">Gestion des Notifications</h1>
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-=======
                 <p class="text-muted mb-0">Bienvenue, <?php echo htmlspecialchars($login_session); ?></p>
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
             </div>
         </div>
         
@@ -403,21 +273,6 @@ $notifications = $notificationService->getAllNotifications();
                         
                         <div class="col-md-6">
                             <label for="target_ids" class="form-label">Destinataires spécifiques (optionnel)</label>
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-                            <select name="target_ids[]" id="target_ids" multiple class="form-select" disabled>
-                                <option value="">Sélectionnez d'abord un type de destinataire</option>
-                            </select>
-                            <div class="form-text">Laissez vide pour envoyer à tous les utilisateurs du type sélectionné.</div>
-                        </div>
-                    </div>
-                    
-                    <div class="text-end">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-paper-plane me-2"></i>Envoyer la notification
-=======
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
                             <select name="target_ids[]" id="target_ids" multiple class="form-select" style="display: none;">
                                 <!-- Les options seront chargées via AJAX -->
                             </select>
@@ -431,161 +286,12 @@ $notifications = $notificationService->getAllNotifications();
                         </button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-paper-plane me-2"></i>Envoyer
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
                         </button>
                     </div>
                 </form>
             </div>
         </div>
         
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-        <!-- Liste des notifications -->
-        <div class="card">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">Notifications envoyées</h5>
-                <span class="badge bg-secondary"><?php echo count($notifications); ?> notification(s)</span>
-            </div>
-            
-            <?php if (empty($notifications)): ?>
-            <div class="card-body text-center py-5">
-                <i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
-                <p class="text-muted">Aucune notification envoyée pour le moment.</p>
-            </div>
-            <?php else: ?>
-            <div class="list-group list-group-flush">
-                <?php foreach ($notifications as $notification): ?>
-                <div class="list-group-item notification-card p-3">
-                    <div class="row">
-                        <div class="col-md-9">
-                            <div class="d-flex align-items-center mb-2">
-                                <h6 class="mb-0 me-2"><?php echo htmlspecialchars($notification['title']); ?></h6>
-                                <span class="badge badge-<?php echo $notification['type']; ?> me-2"><?php echo $notification['type']; ?></span>
-                                <small class="text-muted">
-                                    <?php echo date('d/m/Y H:i', strtotime($notification['created_at'])); ?>
-                                </small>
-                            </div>
-                            
-                            <p class="mb-2"><?php echo nl2br(htmlspecialchars($notification['message'])); ?></p>
-                            
-                            <?php if (!empty($notification['link'])): ?>
-                            <a href="<?php echo htmlspecialchars($notification['link']); ?>" target="_blank" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-external-link-alt me-1"></i>Voir le lien
-                            </a>
-                            <?php endif; ?>
-                            
-                            <div class="mt-2 small">
-                                <span class="badge bg-light text-dark me-2">
-                                    <i class="fas fa-user me-1"></i>
-                                    <?php echo ucfirst($notification['user_type']); ?>: 
-                                    <?php echo htmlspecialchars($notification['user_name'] ?? 'Inconnu'); ?>
-                                </span>
-                                
-                                <span class="badge bg-light text-dark">
-                                    <i class="fas fa-clock me-1"></i>
-                                    <?php echo $notification['is_read'] ? 'Lu' : 'Non lu'; ?>
-                                </span>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-3 text-md-end mt-3 mt-md-0">
-                            <form action="manage_notifications.php" method="POST" onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette notification?');">
-                                <input type="hidden" name="action" value="delete">
-                                <input type="hidden" name="notification_id" value="<?php echo $notification['id']; ?>">
-                                <button type="submit" class="btn btn-outline-danger">
-                                    <i class="fas fa-trash-alt me-2"></i>Supprimer
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-            
-            <?php if ($total_pages > 1): ?>
-            <div class="card-footer bg-white">
-                <nav aria-label="Pagination des notifications">
-                    <ul class="pagination justify-content-center mb-0">
-                        <li class="page-item <?php echo $page <= 1 ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page - 1; ?>" aria-label="Précédent">
-                                <span aria-hidden="true">&laquo;</span>
-                            </a>
-                        </li>
-                        
-                        <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                        <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-                        </li>
-                        <?php endfor; ?>
-                        
-                        <li class="page-item <?php echo $page >= $total_pages ? 'disabled' : ''; ?>">
-                            <a class="page-link" href="?page=<?php echo $page + 1; ?>" aria-label="Suivant">
-                                <span aria-hidden="true">&raquo;</span>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
-            <?php endif; ?>
-        </div>
-    </div>
-    
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Select2 -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-    
-    <script>
-    // Données des utilisateurs pour le formulaire
-    const users = <?php echo json_encode($users); ?>;
-    
-    $(document).ready(function() {
-        // Initialiser Select2 pour une meilleure expérience de sélection multiple
-        $('#target_ids').select2({
-            placeholder: 'Sélectionnez les destinataires',
-            allowClear: true
-        });
-        
-        // Gérer le changement de type de destinataire
-        $('#target_type').change(function() {
-            const targetType = $(this).val();
-            const targetIdsSelect = $('#target_ids');
-            
-            // Réinitialiser les options
-            targetIdsSelect.empty();
-            
-            if (targetType) {
-                // Activer le champ
-                targetIdsSelect.prop('disabled', false);
-                
-                // Ajouter les options en fonction du type sélectionné
-                if (users[targetType] && users[targetType].length > 0) {
-                    users[targetType].forEach(function(user) {
-                        targetIdsSelect.append(new Option(user.name, user.id, false, false));
-                    });
-                } else {
-                    targetIdsSelect.append(new Option('Aucun utilisateur disponible', '', true, true));
-                }
-            } else {
-                // Désactiver le champ si aucun type n'est sélectionné
-                targetIdsSelect.prop('disabled', true);
-                targetIdsSelect.append(new Option('Sélectionnez d\'abord un type de destinataire', '', true, true));
-            }
-            
-            // Rafraîchir Select2
-            targetIdsSelect.trigger('change');
-        });
-    });
-=======
-=======
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
         <!-- Liste des notifications existantes -->
         <div class="card">
             <div class="card-header bg-white">
@@ -708,13 +414,6 @@ $notifications = $notificationService->getAllNotifications();
                 $('#target_ids').val(null).trigger('change');
                 $('#target_ids').prop('disabled', $(this).val() === '');
             });
-<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
-        });
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
-    </script>
-</body>
-</html>
-=======
             
             // Activer/désactiver initialement
             $('#target_ids').prop('disabled', $('#target_type').val() === '');
@@ -722,4 +421,3 @@ $notifications = $notificationService->getAllNotifications();
     </script>
 </body>
 </html>
->>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
