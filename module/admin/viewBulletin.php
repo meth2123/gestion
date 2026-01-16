@@ -484,13 +484,6 @@ foreach ($weighted_details as $detail) {
 $content .= '
                         </tbody>
                         </tbody>
-                    <tfoot class="table-secondary">
-                       <tr class="fw-bold">
-                       <td colspan="2">Total</td>
-                       <td><?php echo number_format($total_course_coefficients, 2); ?></td>
-                       <td><?php echo number_format($total_points, 2); ?></td>
-                     </tr>
-                    </tfoot>
                     </table>
                     
                     <div class="alert alert-info mb-0">
