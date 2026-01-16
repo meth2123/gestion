@@ -121,8 +121,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         $valid_assignment = $result->fetch_assoc()['count'] > 0;
         
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 =======
         
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
+=======
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
         if (!$valid_assignment) {
             $error_message = "Cet enseignant n'est pas assigné à cette classe pour cette matière. Veuillez vérifier les assignations.";
@@ -165,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                 // Journaliser les vérifications de conflit pour le débogage
                 error_log("Vérification des conflits - Classe: " . ($class_conflict ? 'OUI' : 'NON') . ", Enseignant: " . ($teacher_conflict ? 'OUI' : 'NON'));
             
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
                 // Récupérer les détails des conflits pour le débogage
                 if ($class_conflict) {
             
@@ -257,6 +261,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                     } else {
                         $error_message = "Erreur lors de la création de l'emploi du temps: " . $link->error;
                         error_log("Erreur lors de la création de l'emploi du temps: " . $link->error);
+=======
+                if ($class_conflict) {
+                    $error_message = "Cette classe a déjà un cours programmé sur ce créneau";
+                    error_log("Création d'emploi du temps bloquée: Conflit de classe");
+                } else if ($teacher_conflict) {
+                    $error_message = "Cet enseignant a déjà un cours programmé sur ce créneau";
+                    error_log("Création d'emploi du temps bloquée: Conflit d'enseignant");
+                } else {
+                    // Vérifier et ajouter les colonnes nécessaires si elles n'existent pas
+                    $required_columns = [
+                        'day_of_week' => "ALTER TABLE class_schedule ADD COLUMN day_of_week VARCHAR(20) NOT NULL DEFAULT 'Lundi' AFTER slot_id",
+                        'semester' => "ALTER TABLE class_schedule ADD COLUMN semester VARCHAR(10) NOT NULL DEFAULT '1' AFTER day_of_week",
+                        'academic_year' => "ALTER TABLE class_schedule ADD COLUMN academic_year VARCHAR(10) NOT NULL DEFAULT '2024-2025' AFTER semester",
+                        'room' => "ALTER TABLE class_schedule ADD COLUMN room VARCHAR(50) NOT NULL DEFAULT '' AFTER academic_year"
+                    ];
+                    
+                    foreach ($required_columns as $column => $query) {
+                        $column_exists = $link->query("SHOW COLUMNS FROM class_schedule LIKE '$column'");
+                        if ($column_exists && $column_exists->num_rows == 0) {
+                            // La colonne n'existe pas, nous allons l'ajouter
+                            $link->query($query);
+                            error_log("Colonne ajoutée à la table class_schedule: $column");
+                        }
+                    }
+                    
+                    // Double vérification des conflits avant l'insertion - uniquement pour cet administrateur
+                    $final_check_query = "SELECT COUNT(*) as count FROM class_schedule 
+                                         WHERE ((class_id = ? AND slot_id = ? AND day_of_week = ? AND semester = ? AND academic_year = ?)
+                                         OR (teacher_id = ? AND slot_id = ? AND day_of_week = ? AND semester = ? AND academic_year = ?))
+                                         AND CONVERT(created_by USING utf8mb4) = CONVERT(? USING utf8mb4)";
+                    $stmt = $link->prepare($final_check_query);
+                    $stmt->bind_param("ssissssisss", 
+                        $class_id, $slot_id, $day_of_week, $semester, $academic_year,
+                        $teacher_id, $slot_id, $day_of_week, $semester, $academic_year,
+                        $admin_id
+                    );
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $any_conflict = $result->fetch_assoc()['count'] > 0;
+                    
+                    if ($any_conflict) {
+                        $error_message = "Un conflit a été détecté lors de la vérification finale. Emploi du temps non créé.";
+                        error_log("Conflit détecté lors de la vérification finale");
+                    } else {
+                        // Insérer le nouvel emploi du temps
+                        $stmt = $link->prepare("
+                            INSERT INTO class_schedule 
+                            (class_id, subject_id, teacher_id, slot_id, day_of_week, 
+                            room, semester, academic_year, created_by) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        $stmt->bind_param("sssisssss", 
+                            $class_id, $subject_id, $teacher_id, $slot_id, 
+                            $day_of_week, $room, $semester, $academic_year, $admin_id
+                        );
+                        
+                        if ($stmt->execute()) {
+                            $success_message = "Emploi du temps créé avec succès";
+                            error_log("Emploi du temps créé avec succès pour la classe $class_id et l'enseignant $teacher_id");
+                            
+                            // Envoyer les notifications push
+                            $timetableDetails = [
+                                'subject_id' => $subject_id,
+                                'slot_id' => $slot_id,
+                                'day_of_week' => $day_of_week,
+                                'room' => $room,
+                                'semester' => $semester,
+                                'academic_year' => $academic_year
+                            ];
+                            
+                            $adminNameQuery = "SELECT name FROM admin WHERE id = ?";
+                            $adminStmt = $link->prepare($adminNameQuery);
+                            $adminStmt->bind_param("s", $admin_id);
+                            $adminStmt->execute();
+                            $adminResult = $adminStmt->get_result();
+                            $adminName = $adminResult->fetch_assoc()['name'] ?? 'Administrateur';
+                            
+                            $pushResult = $pushService->notifyTimetableCreation($class_id, $teacher_id, $adminName, $timetableDetails);
+                            
+                            if ($pushResult['success']) {
+                                error_log("Notifications push envoyées avec succès pour la création d'emploi du temps");
+                            } else {
+                                error_log("Échec de l'envoi des notifications push: " . ($pushResult['message'] ?? 'Erreur inconnue'));
+                            }
+                            
+                            // Rediriger vers la page principale après un court délai
+                            header("refresh:2;url=timeTable.php");
+                        } else {
+                            $error_message = "Erreur lors de la création de l'emploi du temps: " . $link->error;
+                            error_log("Erreur lors de la création de l'emploi du temps: " . $link->error);
+                        }
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
                     }
                 }
             }
@@ -606,6 +702,10 @@ while ($row = $result->fetch_assoc()) {
 header('Content-Type: application/json');
 echo json_encode($teachers);
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 =======
 ?>
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
@@ -616,9 +716,13 @@ EOT;
 $content = ob_get_clean();
 include('templates/layout.php');
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 
 ?>
 
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 =======
 ?>
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
