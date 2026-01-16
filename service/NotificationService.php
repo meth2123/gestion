@@ -97,6 +97,31 @@ class NotificationService {
     }
 
     /**
+     * Récupérer toutes les notifications créées par l'administrateur (pour la page de gestion)
+     */
+    public function getAllNotifications($limit = 100, $offset = 0) {
+        $stmt = $this->db->prepare("
+            SELECT 
+                n.*,
+                CASE 
+                    WHEN n.user_type = 'teacher' THEN 'Enseignants'
+                    WHEN n.user_type = 'student' THEN 'Élèves'
+                    WHEN n.user_type = 'parent' THEN 'Parents'
+                    ELSE 'Tous'
+                END as target_type
+            FROM notifications n
+            WHERE n.created_by = ?
+            ORDER BY n.created_at DESC
+            LIMIT ? OFFSET ?
+        ");
+        
+        $stmt->bind_param("sii", $this->user_id, $limit, $offset);
+        $stmt->execute();
+        
+        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
+
+    /**
      * Marquer une notification comme lue
      */
     public function markAsRead($notification_id) {
@@ -130,10 +155,10 @@ class NotificationService {
     public function delete($notification_id) {
         $stmt = $this->db->prepare("
             DELETE FROM notifications 
-            WHERE id = ? AND user_id = ? AND user_type = ?
+            WHERE id = ? AND created_by = ?
         ");
         
-        $stmt->bind_param("iss", $notification_id, $this->user_id, $this->user_type);
+        $stmt->bind_param("is", $notification_id, $this->user_id);
         return $stmt->execute();
     }
 
@@ -160,7 +185,8 @@ class NotificationService {
     public function createForAllUsersOfType($title, $message, $user_type, $type = 'info', $link = null) {
         // Récupérer tous les IDs des utilisateurs du type spécifié
         $table = $user_type . 's'; // admin -> admins, teacher -> teachers, student -> students
-        $stmt = $this->db->prepare("SELECT id FROM $table");
+        $stmt = $this->db->prepare("SELECT id FROM $table WHERE created_by = ?");
+        $stmt->bind_param("s", $this->user_id);
         $stmt->execute();
         $result = $stmt->get_result();
         
@@ -169,6 +195,10 @@ class NotificationService {
             $user_ids[] = $row['id'];
         }
         
+        if (empty($user_ids)) {
+            return false;
+        }
+        
         return $this->createForMultipleUsers($title, $message, $user_ids, $user_type, $type, $link);
     }
-} 
+}
