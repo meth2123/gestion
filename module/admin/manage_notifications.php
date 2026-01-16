@@ -3,6 +3,10 @@
 include_once('main.php'); // Inclure main.php en premier (charge mysqlcon.php)
 require_once __DIR__ . '/../../service/NotificationService.php';
 require_once __DIR__ . '/../../service/AuthService.php';
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+=======
+require_once __DIR__ . '/../../service/PushNotificationService.php';
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
 
 // Vérifier si l'utilisateur est connecté et est un administrateur
 
