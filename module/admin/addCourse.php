@@ -58,6 +58,8 @@ $content = '
                 </div>
                 <div class="card-body">
                     <form action="includes/process_course.php" method="POST">
+                        <!-- AJOUT DU CHAMP ACTION MANQUANT -->
+                        <input type="hidden" name="action" value="add">
                         <input type="hidden" name="created_by" value="' . htmlspecialchars($admin_id) . '">
                         
                         <div class="mb-3">
