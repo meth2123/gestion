@@ -306,6 +306,9 @@ if ($selected_class && !empty($students)) {
         </div>';
     }
 
+    // Tableau des assignations actuelles (affiché même s'il n'y a pas d'enseignants)
+    if ($selected_class && !empty($students)) {
+        $content .= '
     <!-- Tableau des assignations actuelles -->
     <div class="card shadow-sm">
         <div class="card-header bg-white">
@@ -323,7 +326,7 @@ if ($selected_class && !empty($students)) {
                     </thead>
                     <tbody>';
 
-    if (empty($current_assignments)) {
+        if (empty($current_assignments)) {
         $content .= '
                         <tr>
                             <td colspan="3" class="text-center py-4 text-muted">
@@ -359,14 +362,14 @@ if ($selected_class && !empty($students)) {
                             <td>' . htmlspecialchars($course_name) . '</td>
                         </tr>';
         }
-    }
 
-    $content .= '
+        $content .= '
                     </tbody>
                 </table>
             </div>
         </div>
     </div>';
+    }
 }
 
 $content .= '
