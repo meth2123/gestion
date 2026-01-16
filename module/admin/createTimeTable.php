@@ -1,6 +1,7 @@
 <?php
 include_once('main.php');
 include_once('../../service/mysqlcon.php');
+require_once __DIR__ . '/../../service/PushNotificationService.php';
 
 // Initialiser le contenu pour le template
 ob_start();
@@ -9,6 +10,10 @@ $success_message = '';
 $error_message = '';
 
 $admin_id = $_SESSION['login_id'];
+
+// Initialiser le service de notification push
+$pushService = new PushNotificationService($link);
+$pushService->setupDatabase();
 
 // Récupérer les classes de l'administrateur
 $classes_query = "SELECT id, name FROM class ORDER BY name";
@@ -115,6 +120,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         $result = $stmt->get_result();
         $valid_assignment = $result->fetch_assoc()['count'] > 0;
         
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+=======
+        
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
         if (!$valid_assignment) {
             $error_message = "Cet enseignant n'est pas assigné à cette classe pour cette matière. Veuillez vérifier les assignations.";
         } else {
@@ -217,6 +226,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                     if ($stmt->execute()) {
                         $success_message = "Emploi du temps créé avec succès";
                         error_log("Emploi du temps créé avec succès pour la classe $class_id et l'enseignant $teacher_id");
+                        
+                        // Envoyer les notifications push
+                        $timetableDetails = [
+                            'subject_id' => $subject_id,
+                            'slot_id' => $slot_id,
+                            'day_of_week' => $day_of_week,
+                            'room' => $room,
+                            'semester' => $semester,
+                            'academic_year' => $academic_year
+                        ];
+                        
+                        $adminNameQuery = "SELECT name FROM admin WHERE id = ?";
+                        $adminStmt = $link->prepare($adminNameQuery);
+                        $adminStmt->bind_param("s", $admin_id);
+                        $adminStmt->execute();
+                        $adminResult = $adminStmt->get_result();
+                        $adminName = $adminResult->fetch_assoc()['name'] ?? 'Administrateur';
+                        
+                        $pushResult = $pushService->notifyTimetableCreation($class_id, $teacher_id, $adminName, $timetableDetails);
+                        
+                        if ($pushResult['success']) {
+                            error_log("Notifications push envoyées avec succès pour la création d'emploi du temps");
+                        } else {
+                            error_log("Échec de l'envoi des notifications push: " . ($pushResult['message'] ?? 'Erreur inconnue'));
+                        }
+                        
                         // Rediriger vers la page principale après un court délai
                         header("refresh:2;url=timeTable.php");
                     } else {
@@ -570,12 +605,20 @@ while ($row = $result->fetch_assoc()) {
 
 header('Content-Type: application/json');
 echo json_encode($teachers);
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 EOT;
     file_put_contents($get_teachers_file, $get_teachers_content);
 }
 
 $content = ob_get_clean();
 include('templates/layout.php');
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 
 ?>
 
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php

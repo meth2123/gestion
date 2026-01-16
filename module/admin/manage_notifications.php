@@ -54,6 +54,18 @@ $link->query("SET FOREIGN_KEY_CHECKS = 1");
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $notificationService = new NotificationService($link, $_SESSION['login_id'], 'admin');
     
+    // Initialiser le service de notification push
+    $pushService = new PushNotificationService($link);
+    $pushService->setupDatabase();
+    
+    // Récupérer le nom de l'admin
+    $adminNameQuery = "SELECT name FROM admin WHERE id = ?";
+    $adminStmt = $link->prepare($adminNameQuery);
+    $adminStmt->bind_param("s", $_SESSION['login_id']);
+    $adminStmt->execute();
+    $adminResult = $adminStmt->get_result();
+    $adminName = $adminResult->fetch_assoc()['name'] ?? 'Administrateur';
+    
     switch ($_POST['action']) {
         case 'create':
             $title = $_POST['title'] ?? '';
@@ -66,9 +78,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (empty($title) || empty($message) || empty($target_type)) {
                 $_SESSION['error'] = "Tous les champs obligatoires doivent être remplis";
             } else {
+                // Préparer les cibles pour les notifications push
+                $targets = [];
+                if (!empty($target_ids)) {
+                    $targets[$target_type . 's'] = $target_ids;
+                } else {
+                    // Si tous les utilisateurs du type sont ciblés, récupérer tous les IDs
+                    $tableMap = [
+                        'teacher' => 'teachers',
+                        'student' => 'students', 
+                        'parent' => 'parents'
+                    ];
+                    
+                    $table = $tableMap[$target_type] ?? null;
+                    if ($table) {
+                        $allUsersQuery = "SELECT id FROM {$table} WHERE created_by = ?";
+                        $allStmt = $link->prepare($allUsersQuery);
+                        $allStmt->bind_param("s", $_SESSION['login_id']);
+                        $allStmt->execute();
+                        $allResult = $allStmt->get_result();
+                        
+                        $userIds = [];
+                        while ($user = $allResult->fetch_assoc()) {
+                            $userIds[] = $user['id'];
+                        }
+                        
+                        if (!empty($userIds)) {
+                            $targets[$target_type . 's'] = $userIds;
+                        }
+                    }
+                }
+                
+                // Envoyer la notification dans la base de données
+                $dbSuccess = false;
                 if (empty($target_ids)) {
                     // Notification pour tous les utilisateurs du type spécifié
                     if ($notificationService->createForAllUsersOfType($title, $message, $target_type, $type, $link_url)) {
+                        $dbSuccess = true;
                         $_SESSION['success'] = "Notification envoyée à tous les " . $target_type . "s";
                     } else {
                         $_SESSION['error'] = "Erreur lors de l'envoi de la notification";
@@ -76,9 +122,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } else {
                     // Notification pour des utilisateurs spécifiques
                     if ($notificationService->createForMultipleUsers($title, $message, $target_ids, $target_type, $type, $link_url)) {
+                        $dbSuccess = true;
                         $_SESSION['success'] = "Notification envoyée aux utilisateurs sélectionnés";
                     } else {
                         $_SESSION['error'] = "Erreur lors de l'envoi de la notification";
+                    }
+                }
+                
+                // Envoyer les notifications push si la notification DB a réussi
+                if ($dbSuccess && !empty($targets)) {
+                    $pushResult = $pushService->sendAdminNotification($adminName, $_SESSION['login_id'], $title, $message, $targets);
+                    
+                    if ($pushResult['success']) {
+                        error_log("Notifications push envoyées avec succès pour la notification admin");
+                    } else {
+                        error_log("Échec de l'envoi des notifications push: " . ($pushResult['message'] ?? 'Erreur inconnue'));
                     }
                 }
             }
