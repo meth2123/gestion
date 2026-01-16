@@ -122,8 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 =======
         
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
+=======
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 =======
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
@@ -168,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                 // Journaliser les vérifications de conflit pour le débogage
                 error_log("Vérification des conflits - Classe: " . ($class_conflict ? 'OUI' : 'NON') . ", Enseignant: " . ($teacher_conflict ? 'OUI' : 'NON'));
             
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
                 // Récupérer les détails des conflits pour le débogage
                 if ($class_conflict) {
@@ -262,6 +266,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                         $error_message = "Erreur lors de la création de l'emploi du temps: " . $link->error;
                         error_log("Erreur lors de la création de l'emploi du temps: " . $link->error);
 =======
+=======
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
                 if ($class_conflict) {
                     $error_message = "Cette classe a déjà un cours programmé sur ce créneau";
                     error_log("Création d'emploi du temps bloquée: Conflit de classe");
@@ -352,6 +358,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
                             $error_message = "Erreur lors de la création de l'emploi du temps: " . $link->error;
                             error_log("Erreur lors de la création de l'emploi du temps: " . $link->error);
                         }
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
+=======
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
                     }
                 }
@@ -703,6 +712,10 @@ header('Content-Type: application/json');
 echo json_encode($teachers);
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 =======
 ?>
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
@@ -717,9 +730,13 @@ $content = ob_get_clean();
 include('templates/layout.php');
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\createTimeTable.php
 
 ?>
 
+=======
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php
 =======
 ?>
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\createTimeTable.php

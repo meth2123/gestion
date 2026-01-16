@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../service/NotificationService.php';
 require_once __DIR__ . '/../../service/AuthService.php';
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 =======
 require_once __DIR__ . '/../../service/PushNotificationService.php';
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
@@ -14,6 +15,11 @@ require_once __DIR__ . '/../../service/PushNotificationService.php';
 
 // Vérifier si l'utilisateur est connecté et est un administrateur
 
+=======
+require_once __DIR__ . '/../../service/PushNotificationService.php';
+
+// Vérifier si l'utilisateur est connecté et est un administrateur
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
 // S'assurer que $link est disponible
 global $link;
 if ($link === null || !$link) {
@@ -58,10 +64,18 @@ try {
 // Réactiver les contraintes de clé étrangère
 $link->query("SET FOREIGN_KEY_CHECKS = 1");
 
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 // Traiter l'ajout d'une nouvelle notification
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $notificationService = new NotificationService($link, $_SESSION['login_id'], 'admin');
     
+=======
+// Initialiser le service de notification
+$notificationService = new NotificationService($link, $_SESSION['login_id'], 'admin');
+
+// Traiter l'ajout d'une nouvelle notification
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     // Initialiser le service de notification push
     $pushService = new PushNotificationService($link);
     $pushService->setupDatabase();
@@ -167,6 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 // Récupérer les utilisateurs pour le formulaire
 $users = [
     'teacher' => [],
@@ -258,12 +273,18 @@ $page_title = "Gestion des Notifications";
 $notifications = $notificationService->getAllNotifications();
 ?>
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
+=======
+// Récupérer toutes les notifications
+$notifications = $notificationService->getAllNotifications();
+?>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion des Notifications</title>
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -272,6 +293,11 @@ $notifications = $notificationService->getAllNotifications();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+=======
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     <style>
         .notification-card {
             transition: all 0.2s ease;
@@ -305,6 +331,10 @@ $notifications = $notificationService->getAllNotifications();
         <div class="row mb-4">
             <div class="col">
                 <h1 class="h3 mb-0">Gestion des Notifications</h1>
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+=======
+                <p class="text-muted mb-0">Bienvenue, <?php echo htmlspecialchars($login_session); ?></p>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
             </div>
         </div>
         
@@ -374,6 +404,7 @@ $notifications = $notificationService->getAllNotifications();
                         <div class="col-md-6">
                             <label for="target_ids" class="form-label">Destinataires spécifiques (optionnel)</label>
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
                             <select name="target_ids[]" id="target_ids" multiple class="form-select" disabled>
                                 <option value="">Sélectionnez d'abord un type de destinataire</option>
                             </select>
@@ -385,6 +416,8 @@ $notifications = $notificationService->getAllNotifications();
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-paper-plane me-2"></i>Envoyer la notification
 =======
+=======
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
                             <select name="target_ids[]" id="target_ids" multiple class="form-select" style="display: none;">
                                 <!-- Les options seront chargées via AJAX -->
                             </select>
@@ -398,6 +431,9 @@ $notifications = $notificationService->getAllNotifications();
                         </button>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-paper-plane me-2"></i>Envoyer
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
+=======
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
                         </button>
                     </div>
@@ -405,6 +441,7 @@ $notifications = $notificationService->getAllNotifications();
             </div>
         </div>
         
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
 <<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
         <!-- Liste des notifications -->
         <div class="card">
@@ -547,6 +584,8 @@ $notifications = $notificationService->getAllNotifications();
         });
     });
 =======
+=======
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
         <!-- Liste des notifications existantes -->
         <div class="card">
             <div class="card-header bg-white">
@@ -669,8 +708,18 @@ $notifications = $notificationService->getAllNotifications();
                 $('#target_ids').val(null).trigger('change');
                 $('#target_ids').prop('disabled', $(this).val() === '');
             });
+<<<<<<< C:\wamp64\www\gestion\module\admin\manage_notifications.php
         });
 >>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
     </script>
 </body>
 </html>
+=======
+            
+            // Activer/désactiver initialement
+            $('#target_ids').prop('disabled', $('#target_type').val() === '');
+        });
+    </script>
+</body>
+</html>
+>>>>>>> c:\Users\DELL\.windsurf\worktrees\gestion\gestion-a995ea30\module\admin\manage_notifications.php
