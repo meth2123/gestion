@@ -34,6 +34,21 @@
         .badge.bg-success { background: #198754!important; }
         .badge.bg-secondary { background: #adb5bd!important; }
     </style>
+    
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "b8c9e82f-be11-439a-a5fc-fd1b39558736",
+          safari_web_id: "web.onesignal.auto.55479a10-4eda-4299-901a-290da3fd1836",
+          notifyButton: {
+            enable: true,
+          },
+        });
+      });
+    </script>
 </head>
 <body>
     <div class="topbar mb-4">

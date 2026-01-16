@@ -23,6 +23,21 @@ $notificationBell = new NotificationBell($link, $check, 'student');
     <title>Espace Étudiant - Système de Gestion Scolaire</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "b8c9e82f-be11-439a-a5fc-fd1b39558736",
+          safari_web_id: "web.onesignal.auto.55479a10-4eda-4299-901a-290da3fd1836",
+          notifyButton: {
+            enable: true,
+          },
+        });
+      });
+    </script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Header -->
