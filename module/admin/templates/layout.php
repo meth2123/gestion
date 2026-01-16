@@ -298,12 +298,6 @@ $loged_user_name = $login_session ?? 'Administrateur';
                 </a>
             </li>
             <li>
-                <a href="<?php echo $base_path; ?>assignClassTeacher.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'assignClassTeacher.php' ? 'active' : ''; ?>">
-                    <i class="fas fa-user-plus"></i>
-                    <span>Assigner enseignant-classe</span>
-                </a>
-            </li>
-            <li>
                 <a href="<?php echo $base_path; ?>assignStudents.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'assignStudents.php' ? 'active' : ''; ?>">
                     <i class="fas fa-user-graduate"></i>
                     <span>Assigner des élèves</span>

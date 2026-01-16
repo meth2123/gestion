@@ -75,9 +75,24 @@ $classes = db_fetch_all(
 $selected_class = $_GET['class_id'] ?? '';
 $selected_teacher = $_GET['teacher_id'] ?? '';
 $courses = [];
+$teacher_courses = []; // Tous les cours assignés à cet enseignant
+
+if ($selected_teacher) {
+    // Récupérer tous les cours assignés à cet enseignant (toutes classes confondues)
+    $teacher_courses = db_fetch_all(
+        "SELECT DISTINCT c.*, cl.name as class_name, cl.id as class_id
+         FROM course c 
+         LEFT JOIN class cl ON c.classid = cl.id
+         WHERE c.created_by = ?
+         AND c.teacherid = ?
+         ORDER BY cl.name, c.name",
+        [$admin_id, $selected_teacher],
+        'ss'
+    );
+}
 
 if ($selected_class && $selected_teacher) {
-    // Récupérer tous les cours créés par cet admin, qu'ils soient assignés ou non
+    // Récupérer tous les cours créés par cet admin pour cette classe, qu'ils soient assignés ou non
     $courses = db_fetch_all(
         "SELECT c.*, t.name as teacher_name, cl.name as class_name
          FROM course c 
@@ -151,13 +166,35 @@ if ($selected_class && $selected_teacher) {
         </div>
 
         <?php if ($selected_teacher): ?>
+            <?php 
+                $teacher_info = db_fetch_row("SELECT name FROM teachers WHERE id = ?", [$selected_teacher], 's');
+                $teacher_name = htmlspecialchars($teacher_info['name'] ?? '');
+            ?>
+            
+            <!-- Afficher les cours déjà assignés à cet enseignant -->
+            <?php if (!empty($teacher_courses)): ?>
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-book mr-2"></i>Cours assignés à <?php echo $teacher_name; ?>
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <?php foreach ($teacher_courses as $tc): ?>
+                            <div class="border rounded-lg p-4 bg-gray-50">
+                                <h3 class="font-medium text-gray-900"><?php echo htmlspecialchars($tc['name']); ?></h3>
+                                <p class="text-sm text-gray-500 mt-1">
+                                    <i class="fas fa-school mr-1"></i>
+                                    <?php echo $tc['class_name'] ? htmlspecialchars($tc['class_name']) : 'Aucune classe'; ?>
+                                </p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
             <!-- Sélection de la classe -->
             <div class="bg-white rounded-lg shadow p-6 mb-6">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">
-                    Assigner une classe à <?php 
-                        $teacher_info = db_fetch_row("SELECT name FROM teachers WHERE id = ?", [$selected_teacher], 's');
-                        echo htmlspecialchars($teacher_info['name'] ?? '');
-                    ?>
+                    Assigner une classe à <?php echo $teacher_name; ?>
                 </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <?php foreach ($classes as $class): ?>

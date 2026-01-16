@@ -127,22 +127,12 @@ if ($selected_class) {
             'ss'
         );
 
-        // Récupérer les enseignants assignés à cette classe
-        // Vérifier les deux sources : table course et table student_teacher_course
+        // Récupérer tous les enseignants créés par l'admin
+        // L'assignation des élèves crée automatiquement l'assignation enseignant-classe-cours
         $teachers = db_fetch_all(
-            "SELECT DISTINCT t.id, t.name 
-             FROM teachers t
-             WHERE t.created_by = ?
-             AND (
-                 -- Enseignants assignés via la table course
-                 t.id IN (SELECT DISTINCT teacherid FROM course WHERE classid = ? AND teacherid IS NOT NULL AND teacherid != '')
-                 OR
-                 -- Enseignants assignés via la table student_teacher_course
-                 t.id IN (SELECT DISTINCT teacher_id FROM student_teacher_course WHERE class_id = ?)
-             )
-             ORDER BY t.name",
-            [$admin_id, $selected_class, $selected_class],
-            'sss'
+            "SELECT id, name FROM teachers WHERE created_by = ? ORDER BY name",
+            [$admin_id],
+            's'
         );
 
         // Récupération des cours créés par l'admin (tous les cours pour cette classe)
@@ -227,13 +217,13 @@ $content .= '
             </div>';
 
 if ($selected_class && !empty($students)) {
-    // Vérifier s'il y a des enseignants assignés à cette classe
+    // Vérifier s'il y a des enseignants disponibles
     if (empty($teachers)) {
         $content .= '
         <div class="alert alert-warning mb-4">
             <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Aucun enseignant assigné à cette classe.</strong>
-            <p class="mb-0 mt-2">Veuillez d\'abord assigner un enseignant à cette classe via la page <a href="assignClassTeacher.php">Assigner une classe</a>.</p>
+            <strong>Aucun enseignant disponible.</strong>
+            <p class="mb-0 mt-2">Veuillez d\'abord créer des enseignants.</p>
         </div>';
     } else {
         $content .= '
@@ -243,7 +233,7 @@ if ($selected_class && !empty($students)) {
                 <h2 class="h5 mb-3">Assigner les élèves</h2>
                 <div class="alert alert-info mb-3">
                     <i class="fas fa-info-circle me-2"></i>
-                    Seuls les enseignants assignés à la classe <strong>' . htmlspecialchars($class_name ?? $selected_class) . '</strong> sont affichés.
+                    L\'assignation des élèves crée automatiquement l\'assignation enseignant-cours-classe.
                 </div>
                 <form method="POST">
                     <input type="hidden" name="class_id" value="' . htmlspecialchars($selected_class) . '">
