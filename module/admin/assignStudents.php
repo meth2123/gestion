@@ -96,24 +96,13 @@ $classes = db_fetch_all(
     's'
 );
 
-// Récupération des enseignants créés par l'admin
-$teachers = db_fetch_all(
-    "SELECT id, name FROM teachers WHERE created_by = ? ORDER BY name",
-    [$admin_id],
-    's'
-);
-
-// Récupération des cours créés par l'admin
-$courses = db_fetch_all(
-    "SELECT id, name FROM course WHERE created_by = ? ORDER BY name",
-    [$admin_id],
-    's'
-);
-
 // Récupération des élèves si une classe est sélectionnée
 $selected_class = $_GET['class'] ?? '';
 $students = [];
 $current_assignments = [];
+$teachers = [];
+$courses = [];
+$class_name = '';
 
 if ($selected_class) {
     // Vérifier que la classe appartient à l'admin
@@ -124,10 +113,43 @@ if ($selected_class) {
     );
 
     if ($class_check) {
+        // Récupérer le nom de la classe
+        $class_info = db_fetch_row(
+            "SELECT id, name FROM class WHERE id = ? AND created_by = ?",
+            [$selected_class, $admin_id],
+            'ss'
+        );
+        $class_name = $class_info ? $class_info['name'] : $selected_class;
+
         $students = db_fetch_all(
             "SELECT id, name FROM students WHERE classid = ? AND created_by = ? ORDER BY name",
             [$selected_class, $admin_id],
             'ss'
+        );
+
+        // Récupérer les enseignants assignés à cette classe
+        // Vérifier les deux sources : table course et table student_teacher_course
+        $teachers = db_fetch_all(
+            "SELECT DISTINCT t.id, t.name 
+             FROM teachers t
+             WHERE t.created_by = ?
+             AND (
+                 -- Enseignants assignés via la table course
+                 t.id IN (SELECT DISTINCT teacherid FROM course WHERE classid = ? AND teacherid IS NOT NULL AND teacherid != '')
+                 OR
+                 -- Enseignants assignés via la table student_teacher_course
+                 t.id IN (SELECT DISTINCT teacher_id FROM student_teacher_course WHERE class_id = ?)
+             )
+             ORDER BY t.name",
+            [$admin_id, $selected_class, $selected_class],
+            'sss'
+        );
+
+        // Récupération des cours créés par l'admin (tous les cours pour cette classe)
+        $courses = db_fetch_all(
+            "SELECT id, name FROM course WHERE created_by = ? ORDER BY name",
+            [$admin_id],
+            's'
         );
 
         // Récupérer les assignations actuelles
@@ -139,6 +161,19 @@ if ($selected_class) {
             'ss'
         );
     }
+} else {
+    // Si aucune classe n'est sélectionnée, récupérer tous les enseignants et cours
+    $teachers = db_fetch_all(
+        "SELECT id, name FROM teachers WHERE created_by = ? ORDER BY name",
+        [$admin_id],
+        's'
+    );
+
+    $courses = db_fetch_all(
+        "SELECT id, name FROM course WHERE created_by = ? ORDER BY name",
+        [$admin_id],
+        's'
+    );
 }
 
 $content = '
@@ -192,70 +227,84 @@ $content .= '
             </div>';
 
 if ($selected_class && !empty($students)) {
-    $content .= '
-    <!-- Formulaire d\'assignation -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <h2 class="h5 mb-3">Assigner les élèves</h2>
-            <form method="POST">
-                <input type="hidden" name="class_id" value="' . htmlspecialchars($selected_class) . '">
-                
-                <div class="row mb-3">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                        <label for="teacher-select" class="form-label">Enseignant</label>
-                        <select id="teacher-select" name="teacher_id" required class="form-select">
-                            <option value="">Sélectionner un enseignant</option>';
-                            foreach ($teachers as $teacher) {
-                                $content .= '<option value="' . htmlspecialchars($teacher['id']) . '">' .
-                                          htmlspecialchars($teacher['name']) . '</option>';
-                            }
-    $content .= '
-                        </select>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label for="course-select" class="form-label">Cours</label>
-                        <select id="course-select" name="course_id" required class="form-select">
-                            <option value="">Sélectionner un cours</option>';
-                            foreach ($courses as $course) {
-                                $content .= '<option value="' . htmlspecialchars($course['id']) . '">' .
-                                          htmlspecialchars($course['name']) . '</option>';
-                            }
-    $content .= '
-                        </select>
-                    </div>
+    // Vérifier s'il y a des enseignants assignés à cette classe
+    if (empty($teachers)) {
+        $content .= '
+        <div class="alert alert-warning mb-4">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Aucun enseignant assigné à cette classe.</strong>
+            <p class="mb-0 mt-2">Veuillez d\'abord assigner un enseignant à cette classe via la page <a href="assignClassTeacher.php">Assigner une classe</a>.</p>
+        </div>';
+    } else {
+        $content .= '
+        <!-- Formulaire d\'assignation -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Assigner les élèves</h2>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Seuls les enseignants assignés à la classe <strong>' . htmlspecialchars($class_name ?? $selected_class) . '</strong> sont affichés.
                 </div>
+                <form method="POST">
+                    <input type="hidden" name="class_id" value="' . htmlspecialchars($selected_class) . '">
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3 mb-md-0">
+                            <label for="teacher-select" class="form-label">Enseignant</label>
+                            <select id="teacher-select" name="teacher_id" required class="form-select">
+                                <option value="">Sélectionner un enseignant</option>';
+                                foreach ($teachers as $teacher) {
+                                    $content .= '<option value="' . htmlspecialchars($teacher['id']) . '">' .
+                                              htmlspecialchars($teacher['name']) . '</option>';
+                                }
+        $content .= '
+                            </select>
+                        </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Élèves</label>
-                    <button type="button" class="btn btn-sm btn-secondary mb-2" id="select-all-students-btn">Sélectionner tout</button>
-                    <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
-                        <div class="row">';
-                        foreach ($students as $student) {
-                            $content .= '
-                            <div class="col-md-4 mb-2">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="student_ids[]" 
-                                           value="' . htmlspecialchars($student['id']) . '" id="student-' . htmlspecialchars($student['id']) . '">
-                                    <label class="form-check-label" for="student-' . htmlspecialchars($student['id']) . '">
-                                        ' . htmlspecialchars($student['name']) . '
-                                    </label>
-                                </div>
-                            </div>';
-                        }
-    $content .= '
+                        <div class="col-md-6">
+                            <label for="course-select" class="form-label">Cours</label>
+                            <select id="course-select" name="course_id" required class="form-select">
+                                <option value="">Sélectionner un cours</option>';
+                                foreach ($courses as $course) {
+                                    $content .= '<option value="' . htmlspecialchars($course['id']) . '">' .
+                                              htmlspecialchars($course['name']) . '</option>';
+                                }
+        $content .= '
+                            </select>
                         </div>
                     </div>
-                </div>
 
-                <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-2"></i>Enregistrer les assignations
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Élèves</label>
+                        <button type="button" class="btn btn-sm btn-secondary mb-2" id="select-all-students-btn">Sélectionner tout</button>
+                        <div class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                            <div class="row">';
+                            foreach ($students as $student) {
+                                $content .= '
+                                <div class="col-md-4 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="student_ids[]" 
+                                               value="' . htmlspecialchars($student['id']) . '" id="student-' . htmlspecialchars($student['id']) . '">
+                                        <label class="form-check-label" for="student-' . htmlspecialchars($student['id']) . '">
+                                            ' . htmlspecialchars($student['name']) . '
+                                        </label>
+                                    </div>
+                                </div>';
+                            }
+        $content .= '
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Enregistrer les assignations
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>';
+    }
 
     <!-- Tableau des assignations actuelles -->
     <div class="card shadow-sm">

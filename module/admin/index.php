@@ -281,6 +281,15 @@ $content = <<<HTML
         </div>
         
         <div class="col-6 col-md-3">
+            <a href="./assignClassTeacher.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-info">
+                <div class="card-body">
+                    <h5 class="card-title">Assigner enseignant-classe</h5>
+                    <p class="card-text text-muted small">Assigner un enseignant à une classe</p>
+                </div>
+            </a>
+        </div>
+        
+        <div class="col-6 col-md-3">
             <a href="./manageGrades.php" class="card h-100 border-0 shadow-sm text-decoration-none text-dark border-start border-5 border-success">
                 <div class="card-body">
                     <h5 class="card-title">Gestion des notes</h5>
