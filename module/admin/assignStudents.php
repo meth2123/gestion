@@ -370,6 +370,7 @@ if ($selected_class && !empty($students)) {
         </div>
     </div>';
     }
+    }
 }
 
 $content .= '
