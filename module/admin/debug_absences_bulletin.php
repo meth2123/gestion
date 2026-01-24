@@ -18,8 +18,116 @@ $student_id = $_GET['student'] ?? '';
 $class_id = $_GET['class'] ?? '';
 $period = $_GET['period'] ?? '1';
 
+// Si les paramètres ne sont pas fournis, afficher un formulaire de sélection
 if (empty($student_id) || empty($class_id)) {
-    die("Paramètres manquants: student et class sont requis");
+    // Récupérer toutes les classes
+    $classes = db_fetch_all(
+        "SELECT id, name FROM class WHERE created_by = ? OR created_by = '21' ORDER BY name",
+        [$admin_id],
+        's'
+    );
+    
+    echo "<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset='UTF-8'>
+        <title>Diagnostic Absences - Sélection</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .form-group { margin: 15px 0; }
+            label { display: block; margin-bottom: 5px; font-weight: bold; }
+            select, input { padding: 8px; width: 300px; }
+            button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+            button:hover { background: #0056b3; }
+        </style>
+    </head>
+    <body>
+        <h1>Diagnostic des Absences pour le Bulletin</h1>
+        <p>Veuillez sélectionner un élève et une classe pour effectuer le diagnostic.</p>
+        
+        <form method='GET' action=''>
+            <div class='form-group'>
+                <label for='class'>Classe:</label>
+                <select name='class' id='class' required onchange='loadStudents(this.value)'>
+                    <option value=''>-- Sélectionner une classe --</option>";
+    
+    foreach ($classes as $class) {
+        $selected = ($class_id == $class['id']) ? 'selected' : '';
+        echo "<option value='" . htmlspecialchars($class['id']) . "' $selected>" . htmlspecialchars($class['name']) . "</option>";
+    }
+    
+    echo "</select>
+            </div>
+            
+            <div class='form-group'>
+                <label for='student'>Élève:</label>
+                <select name='student' id='student' required>
+                    <option value=''>-- Sélectionner d'abord une classe --</option>";
+    
+    // Si une classe est déjà sélectionnée, charger les élèves
+    if (!empty($class_id)) {
+        $students = db_fetch_all(
+            "SELECT id, name FROM students WHERE classid = ? ORDER BY name",
+            [$class_id],
+            's'
+        );
+        foreach ($students as $student) {
+            $selected = ($student_id == $student['id']) ? 'selected' : '';
+            echo "<option value='" . htmlspecialchars($student['id']) . "' $selected>" . htmlspecialchars($student['name']) . "</option>";
+        }
+    }
+    
+    echo "</select>
+            </div>
+            
+            <div class='form-group'>
+                <label for='period'>Période:</label>
+                <select name='period' id='period'>
+                    <option value='1' " . ($period == '1' ? 'selected' : '') . ">Semestre 1</option>
+                    <option value='2' " . ($period == '2' ? 'selected' : '') . ">Semestre 2</option>
+                </select>
+            </div>
+            
+            <button type='submit'>Lancer le diagnostic</button>
+        </form>
+        
+        <script>
+        function loadStudents(classId) {
+            if (!classId) {
+                document.getElementById('student').innerHTML = '<option value=\"\">-- Sélectionner d\'abord une classe --</option>';
+                return;
+            }
+            
+            // Charger les élèves via AJAX
+            fetch('?class=' + classId + '&ajax=students')
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('student').innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    // Fallback: recharger la page avec la classe sélectionnée
+                    window.location.href = '?class=' + classId;
+                });
+        }
+        </script>
+    </body>
+    </html>";
+    exit;
+}
+
+// Gestion AJAX pour charger les élèves
+if (isset($_GET['ajax']) && $_GET['ajax'] == 'students' && !empty($class_id)) {
+    $students = db_fetch_all(
+        "SELECT id, name FROM students WHERE classid = ? ORDER BY name",
+        [$class_id],
+        's'
+    );
+    echo "<option value=''>-- Sélectionner un élève --</option>";
+    foreach ($students as $student) {
+        echo "<option value='" . htmlspecialchars($student['id']) . "'>" . htmlspecialchars($student['name']) . "</option>";
+    }
+    exit;
 }
 
 echo "<h1>Diagnostic des Absences pour le Bulletin</h1>";

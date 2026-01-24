@@ -573,9 +573,17 @@ $content .= '
 
         <!-- Actions -->
         <div class="d-flex justify-content-between">
-            <a href="manageBulletins.php" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Retour
-            </a>
+            <div>
+                <a href="manageBulletins.php" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Retour
+                </a>
+                <a href="debug_absences_bulletin.php?student=' . htmlspecialchars($student_id) . 
+                   '&class=' . htmlspecialchars($class_id) . 
+                   '&period=' . htmlspecialchars($period) . '"
+                   class="btn btn-outline-info ms-2" title="Diagnostic des absences">
+                   <i class="fas fa-bug me-2"></i>Diagnostic Absences
+                </a>
+            </div>
             <div>
                 <a href="generateBulletin.php?student=' . htmlspecialchars($student_id) . 
                    '&class=' . htmlspecialchars($class_id) . 
