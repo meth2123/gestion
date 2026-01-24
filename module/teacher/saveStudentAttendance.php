@@ -136,16 +136,36 @@ error_log("Commentaires reçus: " . print_r($comments, true));
 
 // Enregistrer les présences
 foreach ($statuses as $student_id => $status) {
-    error_log("--- Traitement élève: $student_id, Statut: $status ---");
+    error_log("--- Traitement élève: $student_id, Statut BRUT: '$status' (type: " . gettype($status) . ") ---");
+    
+    // Vérifier que le statut n'est pas vide
+    if (empty($status) || $status === null || $status === '') {
+        error_log("⚠️ Statut vide ou NULL pour l'élève $student_id, utilisation de 'present' par défaut");
+        $status = 'present';
+    }
+    
     // Nettoyer et valider le statut
     $original_status = $status;
-    $status = trim(strtolower($status));
+    $status = trim(strtolower((string)$status));
+    
+    // Vérifier à nouveau après trim
+    if (empty($status)) {
+        error_log("⚠️ Statut vide après trim pour l'élève $student_id, utilisation de 'present' par défaut");
+        $status = 'present';
+    }
+    
     $valid_statuses = ['present', 'absent', 'late', 'excused'];
     if (!in_array($status, $valid_statuses)) {
-        error_log("Statut invalide reçu: '$original_status' (nettoyé: '$status') pour l'élève $student_id, utilisation de 'present' par défaut");
+        error_log("❌ Statut invalide reçu: '$original_status' (nettoyé: '$status') pour l'élève $student_id, utilisation de 'present' par défaut");
         $status = 'present';
     } else {
-        error_log("Statut valide pour l'élève $student_id: '$status'");
+        error_log("✅ Statut valide pour l'élève $student_id: '$status'");
+    }
+    
+    // S'assurer que le statut n'est jamais vide avant l'insertion
+    if (empty($status)) {
+        $status = 'present';
+        error_log("⚠️ DERNIÈRE VÉRIFICATION: Statut était vide, forcé à 'present'");
     }
     // Vérifier que l'élève appartient bien à ce cours et cette classe
     $check_student_sql = "SELECT 1 FROM student_teacher_course 
@@ -199,7 +219,13 @@ foreach ($statuses as $student_id => $status) {
         if (empty($comment)) {
             $comment = null;
         }
-        // Le statut est déjà validé au début de la boucle
+        // S'assurer que le statut n'est jamais vide avant la mise à jour
+        if (empty($status) || $status === null || $status === '') {
+            error_log("⚠️ CRITIQUE: Statut vide avant UPDATE pour l'élève $student_id, forcé à 'present'");
+            $status = 'present';
+        }
+        
+        $comment_value = ($comment === null || $comment === '') ? null : $comment;
         
         // Mettre à jour avec le nouveau datetime pour garder l'heure d'enregistrement actuelle
         $update_sql = "UPDATE student_attendance 
@@ -209,7 +235,7 @@ foreach ($statuses as $student_id => $status) {
                            updated_at = NOW()
                        WHERE id = ?";
         $update_stmt = $link->prepare($update_sql);
-        $update_stmt->bind_param("sssi", $status, $comment, $datetime, $existing_id);
+        $update_stmt->bind_param("sssi", $status, $comment_value, $datetime, $existing_id);
         
         error_log("Mise à jour présence - ID: $existing_id, Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime");
         
@@ -243,8 +269,19 @@ foreach ($statuses as $student_id => $status) {
             continue;
         }
         
+        // S'assurer que le statut n'est jamais vide avant le bind
+        if (empty($status) || $status === null || $status === '') {
+            error_log("⚠️ CRITIQUE: Statut vide juste avant bind_param pour l'élève $student_id, forcé à 'present'");
+            $status = 'present';
+        }
+        
+        // Gérer le commentaire NULL correctement
+        $comment_value = ($comment === null || $comment === '') ? null : $comment;
+        
+        error_log("Valeurs avant bind_param - student_id: '$student_id', course_id: $course_id, class_id: '$class_id', datetime: '$datetime', status: '$status', comment: " . ($comment_value ?? 'NULL') . ", admin_id: '$admin_id'");
+        
         // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (admin_id)
-        $bind_result = $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment, $admin_id);
+        $bind_result = $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment_value, $admin_id);
         
         if (!$bind_result) {
             $error_count++;
