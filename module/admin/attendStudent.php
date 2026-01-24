@@ -66,7 +66,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Nettoyer et valider le statut
         $original_status = $status;
-        $status = trim(strtolower((string)$status));
+        
+        // Convertir les nombres en chaînes correspondantes (1 = present, 2 = absent, etc.)
+        if (is_numeric($status)) {
+            $status_num = (int)$status;
+            $status_map = [0 => 'present', 1 => 'present', 2 => 'absent', 3 => 'late', 4 => 'excused'];
+            if (isset($status_map[$status_num])) {
+                $status = $status_map[$status_num];
+                error_log("⚠️ Statut numérique '$original_status' converti en '$status' pour l'élève $student_id");
+            } else {
+                error_log("⚠️ Statut numérique inconnu '$original_status' pour l'élève $student_id, utilisation de 'present' par défaut");
+                $status = 'present';
+            }
+        } else {
+            $status = trim(strtolower((string)$status));
+        }
         
         // Vérifier à nouveau après trim
         if (empty($status)) {

@@ -371,13 +371,6 @@ $stmt->close();
 
 // 8. Vérifier s'il y a des données dans l'ancienne table attendance
 echo "<h2>8. Vérification de l'ancienne table 'attendance'</h2>";
-$old_attendance_check = $conn->query("
-SELECT COUNT(*) as total
-FROM attendance
-WHERE (attendedid LIKE 'st%' OR attendedid LIKE 'ST%')
-    AND (person_type = 'student' OR person_type IS NULL)
-    AND CAST(attendedid AS CHAR) = CAST(? AS CHAR)
-");
 $old_stmt = $conn->prepare("
 SELECT COUNT(*) as total
 FROM attendance
@@ -385,10 +378,15 @@ WHERE (attendedid LIKE 'st%' OR attendedid LIKE 'ST%')
     AND (person_type = 'student' OR person_type IS NULL)
     AND CAST(attendedid AS CHAR) = CAST(? AS CHAR)
 ");
-$old_stmt->bind_param("s", $student_id);
-$old_stmt->execute();
-$old_result = $old_stmt->get_result()->fetch_assoc();
-$old_stmt->close();
+if ($old_stmt) {
+    $old_stmt->bind_param("s", $student_id);
+    $old_stmt->execute();
+    $old_result = $old_stmt->get_result()->fetch_assoc();
+    $old_stmt->close();
+} else {
+    $old_result = ['total' => 0];
+    echo "<p class='warning'>⚠️ Impossible de vérifier l'ancienne table 'attendance': " . $conn->error . "</p>";
+}
 
 echo "<p><strong>Enregistrements dans l'ancienne table 'attendance' pour cet élève:</strong> " . ($old_result['total'] ?? 0) . "</p>";
 
@@ -397,8 +395,54 @@ if (($old_result['total'] ?? 0) > 0) {
     echo "<p><a href='migrate_attendance_to_student_attendance.php' class='btn' style='background: #dc3545;'>Migrer les données vers student_attendance</a></p>";
 }
 
+// 9. Vérifier les enregistrements avec statut NULL ou vide
+echo "<h2>9. Enregistrements avec statut NULL ou vide</h2>";
+$null_status_query = "
+SELECT 
+    id,
+    student_id,
+    course_id,
+    class_id,
+    datetime,
+    status,
+    created_at
+FROM student_attendance
+WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
+AND CAST(class_id AS CHAR) = CAST(? AS CHAR)
+AND (status IS NULL OR status = '' OR TRIM(status) = '')
+ORDER BY datetime DESC";
+$null_stmt = $conn->prepare($null_status_query);
+if ($null_stmt) {
+    $null_stmt->bind_param("ss", $student_id, $class_id);
+    $null_stmt->execute();
+    $null_results = $null_stmt->get_result();
+    
+    if ($null_results->num_rows > 0) {
+        echo "<p class='error'><strong>⚠️ ATTENTION:</strong> Il y a " . $null_results->num_rows . " enregistrement(s) avec un statut NULL ou vide!</p>";
+        echo "<table border='1' cellpadding='5'>";
+        echo "<tr><th>ID</th><th>Date/Time</th><th>Status (actuel)</th><th>Action</th></tr>";
+        while ($row = $null_results->fetch_assoc()) {
+            echo "<tr>";
+            echo "<td>" . htmlspecialchars($row['id']) . "</td>";
+            echo "<td>" . htmlspecialchars($row['datetime']) . "</td>";
+            echo "<td class='error'><strong>NULL/VIDE</strong></td>";
+            echo "<td><a href='fix_empty_status_attendance.php' class='btn' style='background: #dc3545;'>Corriger</a></td>";
+            echo "</tr>";
+        }
+        echo "</table>";
+        echo "<p><a href='fix_empty_status_attendance.php' class='btn btn-danger'>Corriger tous les statuts vides</a></p>";
+    } else {
+        echo "<p class='success'>✅ Aucun enregistrement avec statut NULL ou vide trouvé.</p>";
+    }
+    $null_stmt->close();
+} else {
+    echo "<p class='warning'>⚠️ Impossible de vérifier les statuts NULL: " . $conn->error . "</p>";
+}
+
 echo "<hr>";
 echo "<p><a href='viewBulletin.php?student=$student_id&class=$class_id&period=$period'>Retour au bulletin</a></p>";
 echo "<p><a href='migrate_attendance_to_student_attendance.php'>Voir toutes les données à migrer</a></p>";
+echo "<p><a href='fix_empty_status_attendance.php'>Corriger les statuts vides</a></p>";
+echo "<p><a href='fix_numeric_status_attendance.php'>Corriger les statuts numériques</a></p>";
 ?>
 
