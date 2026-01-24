@@ -35,27 +35,28 @@ if ($selected_class) {
 // Récupérer l'heure du cours depuis l'emploi du temps
 $course_time = '08:00:00'; // Par défaut
 if ($selected_class && $selected_course && $selected_date) {
-    // Calculer le numéro du jour (1 = Lundi, 7 = Dimanche)
-    $day_number = date('N', strtotime($selected_date));
+    // Calculer le jour de la semaine (Monday, Tuesday, etc.)
+    $day_of_week = date('l', strtotime($selected_date)); // Retourne "Monday", "Tuesday", etc.
     
-    // Récupérer l'heure depuis l'emploi du temps
-    $schedule_sql = "SELECT et.start_time, et.end_time
-                     FROM emploi_temps et
-                     WHERE et.course_id = ?
-                     AND et.class_id = ?
-                     AND et.day_number = ?
+    // Récupérer l'heure depuis class_schedule + time_slots
+    $schedule_sql = "SELECT ts.start_time, ts.end_time
+                     FROM class_schedule cs
+                     INNER JOIN time_slots ts ON cs.slot_id = ts.slot_id
+                     WHERE cs.subject_id = ?
+                     AND CAST(cs.class_id AS CHAR) = CAST(? AS CHAR)
+                     AND cs.day_of_week = ?
                      LIMIT 1";
     $schedule_stmt = $link->prepare($schedule_sql);
-    $schedule_stmt->bind_param("iii", $selected_course, $selected_class, $day_number);
+    $schedule_stmt->bind_param("iss", $selected_course, $selected_class, $day_of_week);
     $schedule_stmt->execute();
     $schedule_result = $schedule_stmt->get_result();
     
     if ($schedule_result->num_rows > 0) {
         $schedule_data = $schedule_result->fetch_assoc();
         $course_time = $schedule_data['start_time'];
-        error_log("Heure du cours récupérée: $course_time pour le jour $day_number");
+        error_log("✅ Heure du cours récupérée: $course_time pour le jour $day_of_week");
     } else {
-        error_log("⚠️ Aucun emploi du temps trouvé pour ce cours le jour $day_number");
+        error_log("⚠️ Aucun emploi du temps trouvé pour ce cours le jour $day_of_week");
     }
     $schedule_stmt->close();
 }
