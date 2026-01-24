@@ -45,46 +45,27 @@ $courses = db_fetch_all(
     'ss'
 );
 
-// Récupérer les présences/absences pour chaque cours
-$absences = [];
-foreach ($courses as $course) {
-    $query = "
-    WITH RECURSIVE dates AS (
-        SELECT CURDATE() - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY as date
-        FROM (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as a
-        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as b
-        CROSS JOIN (SELECT 0 as a UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) as c
-        WHERE CURDATE() - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        AND CURDATE() - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY <= CURDATE()
-        AND WEEKDAY(CURDATE() - INTERVAL (a.a + (10 * b.a) + (100 * c.a)) DAY) < 5
-    )
-    SELECT 
-        DATE_FORMAT(d.date, '%d/%m/%Y') as date,
-        TIME(a.date) as course_time,
-        c.name as course_name,
-        t.name as teacher_name,
-        CASE 
-            WHEN a.attendedid IS NOT NULL THEN 'present'
-            ELSE 'absent'
-        END as status
-    FROM dates d
-    CROSS JOIN (SELECT ? as course_id, ? as course_name, ? as teacher_name) as c
-    LEFT JOIN attendance a ON a.attendedid = ? 
-        AND DATE(a.date) = d.date
-        AND EXISTS (
-            SELECT 1 FROM student_teacher_course stc 
-            WHERE stc.student_id = a.attendedid 
-            AND stc.course_id = c.course_id
-            AND stc.teacher_id = ?
-        )
-    ORDER BY d.date DESC, TIME(a.date) ASC";
-
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("sssss", $course['id'], $course['name'], $course['teacher_name'], $student_id, $teacher_id);
-    $stmt->execute();
-    $course_absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $absences = array_merge($absences, $course_absences);
-}
+// Récupérer les présences/absences depuis student_attendance (les 30 derniers jours)
+$absences = db_fetch_all(
+    "SELECT 
+        DATE_FORMAT(sa.datetime, '%d/%m/%Y') as date,
+        TIME(sa.datetime) as course_time,
+        COALESCE(c.name, 'Cours supprimé') as course_name,
+        COALESCE(t.name, 'Professeur non assigné') as teacher_name,
+        sa.status,
+        sa.comment,
+        sa.datetime as raw_datetime
+     FROM student_attendance sa
+     LEFT JOIN course c ON sa.course_id = c.id
+     LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
+     WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+     AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
+     AND sa.datetime >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+     AND sa.datetime <= NOW()
+     ORDER BY sa.datetime DESC",
+    [$student_id, $class_id],
+    'ss'
+);
 
 // Calculer les statistiques
 $total_absences = 0;
@@ -92,10 +73,15 @@ $justified_absences = 0;
 $unjustified_absences = 0;
 
 foreach ($absences as $absence) {
-    if ($absence['status'] === 'absent') {
+    // Compter uniquement les absences et retards
+    if ($absence['status'] === 'absent' || $absence['status'] === 'late') {
         $total_absences++;
-        // Pour l'instant, toutes les absences sont non justifiées
-        $unjustified_absences++;
+        // Si un commentaire existe, considérer comme justifié, sinon non justifié
+        if (!empty($absence['comment']) && trim($absence['comment']) !== '') {
+            $justified_absences++;
+        } else {
+            $unjustified_absences++;
+        }
     }
 }
 
@@ -138,14 +124,42 @@ $content = '
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Matière</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Professeur</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commentaire</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">';
 
 if (!empty($absences)) {
     foreach ($absences as $absence) {
-        $status_class = $absence['status'] === 'present' ? 'text-green-600' : 'text-red-600';
-        $status_text = $absence['status'] === 'present' ? 'Présent' : 'Absent';
+        $status = $absence['status'] ?? 'present';
+        $status_class = '';
+        $status_text = '';
+        
+        if ($status === 'present') {
+            $status_class = 'text-green-600';
+            $status_text = 'Présent';
+        } elseif ($status === 'absent') {
+            $status_class = 'text-red-600';
+            $status_text = 'Absent';
+        } elseif ($status === 'late') {
+            $status_class = 'text-yellow-600';
+            $status_text = 'En retard';
+        } elseif ($status === 'excused') {
+            $status_class = 'text-blue-600';
+            $status_text = 'Excusé';
+        } else {
+            $status_class = 'text-gray-600';
+            $status_text = ucfirst($status);
+        }
+        
+        $justified_badge = '';
+        if ($status === 'absent' || $status === 'late') {
+            if (!empty($absence['comment']) && trim($absence['comment']) !== '') {
+                $justified_badge = '<span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Justifiée</span>';
+            } else {
+                $justified_badge = '<span class="ml-2 px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Non justifiée</span>';
+            }
+        }
         
         $content .= '
             <tr>
@@ -158,13 +172,15 @@ if (!empty($absences)) {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">' . 
                     safe_html($absence['teacher_name']) . '</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm ' . $status_class . '">' . 
-                    safe_html($status_text) . '</td>
+                    safe_html($status_text) . $justified_badge . '</td>
+                <td class="px-6 py-4 text-sm text-gray-600">' . 
+                    safe_html($absence['comment'] ?? '-') . '</td>
             </tr>';
     }
 } else {
     $content .= '
         <tr>
-            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
                 Aucune absence enregistrée pour les 30 derniers jours
             </td>
         </tr>';
