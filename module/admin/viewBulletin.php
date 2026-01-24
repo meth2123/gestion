@@ -137,6 +137,7 @@ if ($period == '1') {
 
 // Récupérer TOUTES les absences enregistrées pour cet élève dans cette classe pour la période du semestre
 // Chaque absence enregistrée par l'enseignant doit apparaître dans le bulletin
+// IMPORTANT: course_id est INT dans student_attendance mais peut être VARCHAR dans course, donc on utilise CAST
 $absences_query = "
 SELECT 
     DATE_FORMAT(sa.datetime, '%d/%m/%Y') as date,
@@ -148,7 +149,7 @@ SELECT
     sa.datetime as raw_datetime,
     DATE(sa.datetime) as absence_date
 FROM student_attendance sa
-LEFT JOIN course c ON sa.course_id = c.id
+LEFT JOIN course c ON CAST(sa.course_id AS CHAR) = CAST(c.id AS CHAR)
 LEFT JOIN teachers t ON CAST(c.teacherid AS CHAR) = CAST(t.id AS CHAR)
 WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
 AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
@@ -156,6 +157,26 @@ AND sa.status IN ('absent', 'late')
 AND DATE(sa.datetime) >= ?
 AND DATE(sa.datetime) <= ?
 ORDER BY sa.datetime DESC";
+
+// Diagnostic: Vérifier d'abord s'il y a des absences pour cet élève (sans filtre de date)
+$debug_query = "
+SELECT COUNT(*) as total_count,
+       COUNT(CASE WHEN sa.status IN ('absent', 'late') THEN 1 END) as absent_count,
+       MIN(DATE(sa.datetime)) as min_date,
+       MAX(DATE(sa.datetime)) as max_date
+FROM student_attendance sa
+WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)";
+$debug_stmt = $conn->prepare($debug_query);
+if ($debug_stmt) {
+    $debug_stmt->bind_param("ss", $student_id, $class_id);
+    $debug_stmt->execute();
+    $debug_result = $debug_stmt->get_result()->fetch_assoc();
+    error_log("DEBUG Bulletin - Total enregistrements student_attendance pour élève $student_id, classe $class_id: " . ($debug_result['total_count'] ?? 0));
+    error_log("DEBUG Bulletin - Absences/retards trouvés: " . ($debug_result['absent_count'] ?? 0));
+    error_log("DEBUG Bulletin - Plage de dates dans la table: " . ($debug_result['min_date'] ?? 'N/A') . " à " . ($debug_result['max_date'] ?? 'N/A'));
+    $debug_stmt->close();
+}
 
 $stmt = $conn->prepare($absences_query);
 if (!$stmt) {
@@ -169,6 +190,30 @@ if (!$stmt) {
     } else {
         $absences = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         error_log("Nombre d'absences récupérées pour l'élève $student_id, classe $class_id, période $semester_start à $semester_end: " . count($absences));
+        
+        // Log détaillé des premières absences trouvées
+        if (count($absences) > 0) {
+            error_log("Première absence trouvée: " . json_encode($absences[0]));
+        } else {
+            // Si aucune absence trouvée, vérifier sans filtre de date
+            $no_date_query = "
+            SELECT COUNT(*) as count, sa.status, DATE(sa.datetime) as date
+            FROM student_attendance sa
+            WHERE CAST(sa.student_id AS CHAR) = CAST(? AS CHAR)
+            AND CAST(sa.class_id AS CHAR) = CAST(? AS CHAR)
+            AND sa.status IN ('absent', 'late')
+            GROUP BY sa.status, DATE(sa.datetime)
+            ORDER BY date DESC
+            LIMIT 5";
+            $no_date_stmt = $conn->prepare($no_date_query);
+            if ($no_date_stmt) {
+                $no_date_stmt->bind_param("ss", $student_id, $class_id);
+                $no_date_stmt->execute();
+                $no_date_result = $no_date_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                error_log("DEBUG - Absences trouvées SANS filtre de date: " . json_encode($no_date_result));
+                $no_date_stmt->close();
+            }
+        }
     }
     $stmt->close();
 }
