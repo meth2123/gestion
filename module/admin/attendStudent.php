@@ -7,6 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $class_id = $_POST['class_id'] ?? '';
     $course_id = $_POST['course_id'] ?? '';
     $date = $_POST['date'] ?? date('Y-m-d');
+    $course_time = $_POST['course_time'] ?? '08:00:00'; // Récupérer l'heure du cours
     $students = $_POST['students'] ?? [];
     $statuses = $_POST['status'] ?? [];
     
@@ -15,10 +16,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    $default_time = '08:00:00';
-    $datetime = $date . ' ' . $default_time;
+    // Utiliser l'heure du cours au lieu d'une heure fixe
+    $datetime = $date . ' ' . $course_time;
     $success_count = 0;
     $error_count = 0;
+    
+    error_log("=== DÉBUT ENREGISTREMENT PRÉSENCES ===");
+    error_log("Date: $date | Heure du cours: $course_time | DateTime: $datetime");
     
     // Vérifier que le cours appartient à cet admin
     $verify_sql = "SELECT id FROM course WHERE id = ? AND CAST(created_by AS CHAR) = CAST(? AS CHAR)";
@@ -34,12 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $verify_stmt->close();
     
     // Debug: Afficher les données reçues
-    error_log("Admin - Statuts reçus: " . print_r($statuses, true));
-    error_log("Admin - Élèves reçus: " . print_r($students, true));
+    error_log("Statuts reçus: " . print_r($statuses, true));
+    error_log("Élèves reçus: " . print_r($students, true));
     
     // Traiter TOUS les élèves envoyés dans le tableau students[]
     foreach ($students as $student_id) {
-        error_log("Admin - Traitement élève: $student_id");
+        error_log("--- Traitement élève: $student_id ---");
         
         // Récupérer le statut pour cet élève
         $status = isset($statuses[$student_id]) ? trim(strtolower($statuses[$student_id])) : 'present';
@@ -75,9 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $check_attendance_sql = "SELECT id, status FROM student_attendance 
                                 WHERE CAST(student_id AS CHAR) = CAST(? AS CHAR)
                                 AND course_id = ?
-                                AND DATE(datetime) = DATE(?)";
+                                AND DATE(datetime) = DATE(?)
+                                AND TIME(datetime) = TIME(?)";
         $check_stmt = $link->prepare($check_attendance_sql);
-        $check_stmt->bind_param("sis", $student_id, $course_id, $datetime);
+        $check_stmt->bind_param("siss", $student_id, $course_id, $datetime, $datetime);
         $check_stmt->execute();
         $attendance_result = $check_stmt->get_result();
         
@@ -91,14 +96,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $update_stmt = $link->prepare($update_sql);
             $update_stmt->bind_param("si", $status, $existing['id']);
             
-            error_log("Admin - Mise à jour présence - Élève: $student_id, Ancien statut: '{$existing['status']}', Nouveau statut: '$status'");
+            error_log("📝 Mise à jour - Élève: $student_id | Ancien: '{$existing['status']}' → Nouveau: '$status' | Heure: $course_time");
             
             if ($update_stmt->execute()) {
                 $success_count++;
-                error_log("✅ Présence mise à jour avec succès pour l'élève $student_id avec le statut '$status'");
+                error_log("✅ Présence mise à jour avec succès");
             } else {
                 $error_count++;
-                error_log("❌ Erreur lors de la mise à jour de la présence pour l'élève $student_id: " . $update_stmt->error);
+                error_log("❌ Erreur mise à jour: " . $update_stmt->error);
             }
             $update_stmt->close();
             $check_stmt->close();
@@ -106,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $check_stmt->close();
         
-        error_log("Admin - Insertion présence - Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime");
+        error_log("➕ Insertion - Élève: $student_id | Statut: '$status' | DateTime: $datetime");
         
         // Insérer la nouvelle présence
         $insert_sql = "INSERT INTO student_attendance 
@@ -117,13 +122,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($insert_stmt->execute()) {
             $success_count++;
-            error_log("✅ Présence insérée avec succès pour l'élève $student_id avec le statut '$status'");
+            error_log("✅ Présence insérée avec succès");
         } else {
             $error_count++;
-            error_log("❌ Erreur lors de l'insertion de la présence pour l'élève $student_id: " . $insert_stmt->error);
+            error_log("❌ Erreur insertion: " . $insert_stmt->error);
         }
         $insert_stmt->close();
     }
+    
+    error_log("=== FIN: $success_count succès, $error_count erreurs ===");
     
     // Redirection avec message
     $redirect_url = "studentAttendance.php?date=" . urlencode($date) . 
@@ -131,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                    "&course_id=" . urlencode($course_id);
     
     if ($success_count > 0) {
-        $message = "$success_count présence(s) enregistrée(s) avec succès";
+        $message = "$success_count présence(s) enregistrée(s) avec succès à " . date('H:i', strtotime($course_time));
         if ($error_count > 0) {
             $message .= " ($error_count erreur(s))";
         }

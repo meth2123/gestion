@@ -32,6 +32,34 @@ if ($selected_class) {
     $courses = $stmt->get_result();
 }
 
+// Récupérer l'heure du cours depuis l'emploi du temps
+$course_time = '08:00:00'; // Par défaut
+if ($selected_class && $selected_course && $selected_date) {
+    // Calculer le numéro du jour (1 = Lundi, 7 = Dimanche)
+    $day_number = date('N', strtotime($selected_date));
+    
+    // Récupérer l'heure depuis l'emploi du temps
+    $schedule_sql = "SELECT et.start_time, et.end_time
+                     FROM emploi_temps et
+                     WHERE et.course_id = ?
+                     AND et.class_id = ?
+                     AND et.day_number = ?
+                     LIMIT 1";
+    $schedule_stmt = $link->prepare($schedule_sql);
+    $schedule_stmt->bind_param("iii", $selected_course, $selected_class, $day_number);
+    $schedule_stmt->execute();
+    $schedule_result = $schedule_stmt->get_result();
+    
+    if ($schedule_result->num_rows > 0) {
+        $schedule_data = $schedule_result->fetch_assoc();
+        $course_time = $schedule_data['start_time'];
+        error_log("Heure du cours récupérée: $course_time pour le jour $day_number");
+    } else {
+        error_log("⚠️ Aucun emploi du temps trouvé pour ce cours le jour $day_number");
+    }
+    $schedule_stmt->close();
+}
+
 // Récupérer les élèves si classe et cours sont sélectionnés
 $students = [];
 if ($selected_class && $selected_course) {
@@ -90,6 +118,12 @@ ob_start();
         .status-badge {
             font-size: 0.85em;
             padding: 4px 8px;
+        }
+        .time-info {
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -160,10 +194,20 @@ ob_start();
             <div class="card shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Marquer la présence pour le <?= date('d/m/Y', strtotime($selected_date)) ?></h5>
+                    
+                    <!-- Afficher l'heure du cours -->
+                    <?php if ($course_time != '08:00:00'): ?>
+                        <div class="time-info">
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>Heure du cours :</strong> <?= date('H:i', strtotime($course_time)) ?>
+                        </div>
+                    <?php endif; ?>
+                    
                     <form method="POST" action="attendStudent.php">
                         <input type="hidden" name="class_id" value="<?= htmlspecialchars($selected_class) ?>">
                         <input type="hidden" name="course_id" value="<?= htmlspecialchars($selected_course) ?>">
                         <input type="hidden" name="date" value="<?= htmlspecialchars($selected_date) ?>">
+                        <input type="hidden" name="course_time" value="<?= htmlspecialchars($course_time) ?>">
                         
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
@@ -175,8 +219,7 @@ ob_start();
                                 </thead>
                                 <tbody>
                                     <?php 
-                                    $default_time = '08:00:00'; // Heure par défaut
-                                    $datetime = $selected_date . ' ' . $default_time;
+                                    $datetime = $selected_date . ' ' . $course_time;
                                     while ($student = $students->fetch_assoc()): 
                                         $already_marked = checkStudentAttendanceExists($link, $student['id'], $selected_course, $datetime);
                                     ?>
@@ -188,7 +231,7 @@ ob_start();
                                             <td>
                                                 <?php if ($already_marked): ?>
                                                     <span class="badge bg-success status-badge">
-                                                        <i class="fas fa-check-circle me-1"></i>Déjà marqué
+                                                        <i class="fas fa-check-circle me-1"></i>Déjà marqué à <?= date('H:i', strtotime($course_time)) ?>
                                                     </span>
                                                 <?php else: ?>
                                                     <!-- Champ caché pour envoyer l'ID de l'étudiant -->

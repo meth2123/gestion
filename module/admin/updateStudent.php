@@ -93,7 +93,7 @@ function submitForm(formId) {
         if (isValid) {
             form.submit();
         }
-    }
+    }new_create_timetable.php
 }
 
 function showMessage(message, type = "success") {
