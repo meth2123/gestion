@@ -39,15 +39,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Enregistrer les présences pour tous les élèves qui ont un statut défini
     // Utiliser $statuses comme source principale (tous les élèves avec un statut)
+    // Si $statuses est vide mais $students est rempli, traiter tous les élèves cochés avec 'present' par défaut
+    if (empty($statuses) && !empty($students)) {
+        // Si aucun statut n'a été envoyé mais des élèves sont cochés, créer un tableau de statuts par défaut
+        foreach ($students as $student_id) {
+            $statuses[$student_id] = 'present';
+        }
+        error_log("Admin - Aucun statut reçu, utilisation de 'present' par défaut pour tous les élèves cochés");
+    }
     $students_to_process = !empty($statuses) ? array_keys($statuses) : $students;
     
+    error_log("Admin - Élèves à traiter: " . count($students_to_process));
+    error_log("Admin - Statuts disponibles: " . print_r($statuses, true));
+    
     foreach ($students_to_process as $student_id) {
+        error_log("Admin - Traitement élève: $student_id");
+        
         // Récupérer et valider le statut
-        $status = isset($statuses[$student_id]) ? trim(strtolower($statuses[$student_id])) : 'present';
+        $status = isset($statuses[$student_id]) ? $statuses[$student_id] : 'present';
+        
+        // Vérifier que le statut n'est pas vide
+        if (empty($status) || $status === null || $status === '') {
+            error_log("⚠️ Statut vide ou NULL pour l'élève $student_id, utilisation de 'present' par défaut");
+            $status = 'present';
+        }
+        
+        // Nettoyer et valider le statut
+        $original_status = $status;
+        $status = trim(strtolower((string)$status));
+        
+        // Vérifier à nouveau après trim
+        if (empty($status)) {
+            error_log("⚠️ Statut vide après trim pour l'élève $student_id, utilisation de 'present' par défaut");
+            $status = 'present';
+        }
+        
         $valid_statuses = ['present', 'absent', 'late', 'excused'];
         if (!in_array($status, $valid_statuses)) {
-            error_log("Statut invalide reçu: '$status' pour l'élève $student_id, utilisation de 'present' par défaut");
+            error_log("❌ Statut invalide reçu: '$original_status' (nettoyé: '$status') pour l'élève $student_id, utilisation de 'present' par défaut");
             $status = 'present';
+        } else {
+            error_log("✅ Statut valide pour l'élève $student_id: '$status'");
+        }
+        
+        // S'assurer que le statut n'est jamais vide avant l'insertion/mise à jour
+        if (empty($status)) {
+            $status = 'present';
+            error_log("⚠️ DERNIÈRE VÉRIFICATION: Statut était vide, forcé à 'present'");
         }
         
         // Vérifier que l'élève appartient à cet admin
@@ -82,13 +120,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($attendance_result->num_rows > 0) {
             // Mettre à jour la présence existante
             $existing = $attendance_result->fetch_assoc();
+            
+            // S'assurer que le statut n'est jamais vide avant la mise à jour
+            if (empty($status) || $status === null || $status === '') {
+                error_log("⚠️ CRITIQUE: Statut vide avant UPDATE pour l'élève $student_id, forcé à 'present'");
+                $status = 'present';
+            }
+            
             $update_sql = "UPDATE student_attendance 
                           SET status = ?, updated_at = NOW()
                           WHERE id = ?";
             $update_stmt = $link->prepare($update_sql);
             $update_stmt->bind_param("si", $status, $existing['id']);
             
-            error_log("Admin - Mise à jour présence - Élève: $student_id, Cours: $course_id, Statut: $status");
+            error_log("Admin - Mise à jour présence - Élève: $student_id, Cours: $course_id, Statut: '$status'");
             
             if ($update_stmt->execute()) {
                 $success_count++;
@@ -103,7 +148,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $check_stmt->close();
         
-        error_log("Admin - Insertion présence - Élève: $student_id, Cours: $course_id, Statut: $status, DateTime: $datetime");
+        // S'assurer que le statut n'est jamais vide avant l'insertion
+        if (empty($status) || $status === null || $status === '') {
+            error_log("⚠️ CRITIQUE: Statut vide juste avant INSERT pour l'élève $student_id, forcé à 'present'");
+            $status = 'present';
+        }
+        
+        error_log("Admin - Insertion présence - Élève: $student_id, Cours: $course_id, Statut: '$status', DateTime: $datetime");
+        error_log("Valeurs avant bind_param - student_id: '$student_id', course_id: $course_id, class_id: '$class_id', datetime: '$datetime', status: '$status', admin_id: '$admin_id'");
         
         // Insérer la nouvelle présence
         $insert_sql = "INSERT INTO student_attendance 

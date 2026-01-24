@@ -192,8 +192,8 @@ ob_start();
                                                         <i class="fas fa-check-circle me-1"></i>Déjà marqué
                                                     </span>
                                                 <?php else: ?>
-                                                    <select name="status[<?= htmlspecialchars($student['id']) ?>]" class="form-select form-select-sm">
-                                                        <option value="present">Présent</option>
+                                                    <select name="status[<?= htmlspecialchars($student['id']) ?>]" class="form-select form-select-sm" required>
+                                                        <option value="present" selected>Présent</option>
                                                         <option value="absent">Absent</option>
                                                         <option value="late">En retard</option>
                                                         <option value="excused">Excusé</option>
