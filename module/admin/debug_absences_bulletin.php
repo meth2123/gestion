@@ -369,7 +369,36 @@ if ($exact_results->num_rows > 0) {
 }
 $stmt->close();
 
+// 8. Vérifier s'il y a des données dans l'ancienne table attendance
+echo "<h2>8. Vérification de l'ancienne table 'attendance'</h2>";
+$old_attendance_check = $conn->query("
+SELECT COUNT(*) as total
+FROM attendance
+WHERE (attendedid LIKE 'st%' OR attendedid LIKE 'ST%')
+    AND (person_type = 'student' OR person_type IS NULL)
+    AND CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+");
+$old_stmt = $conn->prepare("
+SELECT COUNT(*) as total
+FROM attendance
+WHERE (attendedid LIKE 'st%' OR attendedid LIKE 'ST%')
+    AND (person_type = 'student' OR person_type IS NULL)
+    AND CAST(attendedid AS CHAR) = CAST(? AS CHAR)
+");
+$old_stmt->bind_param("s", $student_id);
+$old_stmt->execute();
+$old_result = $old_stmt->get_result()->fetch_assoc();
+$old_stmt->close();
+
+echo "<p><strong>Enregistrements dans l'ancienne table 'attendance' pour cet élève:</strong> " . ($old_result['total'] ?? 0) . "</p>";
+
+if (($old_result['total'] ?? 0) > 0) {
+    echo "<p class='warning'><strong>⚠️ ATTENTION:</strong> Il y a des données dans l'ancienne table 'attendance' qui ne sont pas dans 'student_attendance'!</p>";
+    echo "<p><a href='migrate_attendance_to_student_attendance.php' class='btn' style='background: #dc3545;'>Migrer les données vers student_attendance</a></p>";
+}
+
 echo "<hr>";
 echo "<p><a href='viewBulletin.php?student=$student_id&class=$class_id&period=$period'>Retour au bulletin</a></p>";
+echo "<p><a href='migrate_attendance_to_student_attendance.php'>Voir toutes les données à migrer</a></p>";
 ?>
 
