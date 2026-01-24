@@ -171,7 +171,6 @@ ob_start();
                                     <tr>
                                         <th>Élève</th>
                                         <th>Statut</th>
-                                        <th>Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -192,19 +191,14 @@ ob_start();
                                                         <i class="fas fa-check-circle me-1"></i>Déjà marqué
                                                     </span>
                                                 <?php else: ?>
+                                                    <!-- Champ caché pour envoyer l'ID de l'étudiant -->
+                                                    <input type="hidden" name="students[]" value="<?= htmlspecialchars($student['id']) ?>">
                                                     <select name="status[<?= htmlspecialchars($student['id']) ?>]" class="form-select form-select-sm" required>
                                                         <option value="present" selected>Présent</option>
                                                         <option value="absent">Absent</option>
                                                         <option value="late">En retard</option>
                                                         <option value="excused">Excusé</option>
                                                     </select>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?php if (!$already_marked): ?>
-                                                    <input type="checkbox" name="students[]" value="<?= htmlspecialchars($student['id']) ?>" checked>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -251,4 +245,3 @@ ob_start();
 $content = ob_get_clean();
 include('templates/layout.php');
 ?>
-
