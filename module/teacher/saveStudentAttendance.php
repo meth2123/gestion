@@ -364,7 +364,7 @@ foreach ($statuses as $student_id => $status) {
         error_log("Valeurs avant bind_param - student_id: '$student_id', course_id: $course_id, class_id: '$class_id', datetime: '$datetime', status: '$status', comment: " . ($comment_value ?? 'NULL') . ", admin_id: '$admin_id'");
         
         // Format: s (student_id), i (course_id), s (class_id), s (datetime), s (status), s (comment), s (admin_id)
-        $bind_result = $insert_stmt->bind_param("sississ", $student_id, $course_id, $class_id, $datetime, $status, $comment_value, $admin_id);
+        $bind_result = $insert_stmt->bind_param("sisssss", $student_id, $course_id, $class_id, $datetime, $status, $comment_value, $admin_id);
         
         if (!$bind_result) {
             $error_count++;
