@@ -1,4 +1,10 @@
 <?php
+
+// SEO (page publique)
+$page_title = 'Renouvellement d'abonnement - SchoolManager';
+$page_description = 'Plateforme SchoolManager pour la gestion scolaire.';
+$robots = 'index, follow';
+$include_google_verification = false;
 /**
  * Page de renouvellement d'abonnement - Version simplifiée
  */
@@ -53,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['renew']) && $subscrip
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Renouvellement d'abonnement - SchoolManager</title>
+    <?php require_once __DIR__ . '/../../seo.php'; ?>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>

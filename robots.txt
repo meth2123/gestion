@@ -1,3 +1,3 @@
-User-agent: *
+﻿User-agent: *
 Allow: /
-Sitemap: https://https://gestion-rlhq.onrender.com//sitemap.xml
+Sitemap: https://gestion-rlhq.onrender.com/sitemap.xml

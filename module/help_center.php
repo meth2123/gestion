@@ -1,4 +1,10 @@
 <?php
+
+// SEO (page publique)
+$page_title = 'Centre d'Aide - SchoolManager';
+$page_description = 'Plateforme SchoolManager pour la gestion scolaire.';
+$robots = 'index, follow';
+$include_google_verification = false;
 // Inclure les fichiers nécessaires
 include_once('../service/mysqlcon.php');
 
@@ -138,6 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centre d'Aide - Système de Gestion Scolaire</title>
+    <?php require_once __DIR__ . '/../../seo.php'; ?>
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="../source/logo.jpg">
     <link rel="shortcut icon" type="image/jpeg" href="../source/logo.jpg">

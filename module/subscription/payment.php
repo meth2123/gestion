@@ -1,4 +1,10 @@
 <?php
+
+// SEO (page publique)
+$page_title = 'Initialisation du paiement - SchoolManager';
+$page_description = 'Plateforme SchoolManager pour la gestion scolaire.';
+$robots = 'index, follow';
+$include_google_verification = false;
 session_start();
 require_once __DIR__ . '/../../service/mysqlcon.php';
 require_once __DIR__ . '/../../service/paydunya_service.php';
@@ -48,6 +54,7 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Initialisation du paiement - Gestion Scolaire</title>
+    <?php require_once __DIR__ . '/../../seo.php'; ?>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>

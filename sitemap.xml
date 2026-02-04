@@ -1,13 +1,88 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://gestion-rlhq.onrender.com/</loc>
+    <loc>https://gestion-rlhq.onrender.com/documentation/admin_guide.php</loc>
     <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/documentation/admin_guide_new.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/documentation/director_guide.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://gestion-rlhq.onrender.com/documentation/index.php</loc>
-    <changefreq>monthly</changefreq>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/documentation/parent_guide.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/documentation/student_guide.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/documentation/teacher_guide.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/index.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/login.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/help_center.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/callback.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/dashboard.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/debug_api.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/payment.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/register.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/renew.php</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://gestion-rlhq.onrender.com/module/subscription/renew_debug.php</loc>
+    <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
 </urlset>

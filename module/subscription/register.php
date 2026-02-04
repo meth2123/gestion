@@ -1,4 +1,10 @@
 <?php
+
+// SEO (page publique)
+$page_title = 'SchoolManager - Inscription';
+$page_description = 'Plateforme SchoolManager pour la gestion scolaire.';
+$robots = 'index, follow';
+$include_google_verification = false;
 // Utiliser __DIR__ pour des chemins absolus plus fiables
 // Chargement optimisé : ne charger la DB que si nécessaire (lazy loading)
 error_reporting(E_ALL);
@@ -168,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SchoolManager - Inscription</title>
+    <?php require_once __DIR__ . '/../../seo.php'; ?>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>

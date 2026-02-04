@@ -1,4 +1,10 @@
 <?php
+
+// SEO (page publique)
+$page_title = 'SchoolManager - Connexion';
+$page_description = 'Connexion à la plateforme SchoolManager.';
+$robots = 'index, follow';
+$include_google_verification = false;
 session_start();
 require_once __DIR__ . '/service/mysqlcon.php';
 require_once __DIR__ . '/components/SmartSubscriptionButton.php';
@@ -63,7 +69,7 @@ if(isset($_GET['error'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SchoolManager - Connexion</title>
+    <title>SchoolManager - Connexion</title>\r\n    <?php require_once __DIR__ . '/seo.php'; ?>
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="source/logo.jpg">
     <link rel="shortcut icon" type="image/jpeg" href="source/logo.jpg">
