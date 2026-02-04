@@ -122,8 +122,36 @@ if (!$admin_id) {
     exit;
 }
 
-$default_time = date('H:i:s');
-$datetime = $date . ' ' . $default_time;
+// Récupérer l'heure du cours depuis l'emploi du temps
+$day_number = (int)date('N', strtotime($date)); // 1=Lundi, 7=Dimanche
+$course_time = null;
+
+$schedule_sql = "SELECT ts.start_time
+                 FROM class_schedule cs
+                 JOIN time_slots ts ON cs.slot_id = ts.slot_id
+                 WHERE CAST(cs.class_id AS CHAR) = CAST(? AS CHAR)
+                 AND cs.subject_id = ?
+                 AND CAST(cs.teacher_id AS CHAR) = CAST(? AS CHAR)
+                 AND ts.day_number = ?
+                 LIMIT 1";
+$schedule_stmt = $link->prepare($schedule_sql);
+if ($schedule_stmt) {
+    $schedule_stmt->bind_param("sisi", $class_id, $course_id, $teacher_id, $day_number);
+    $schedule_stmt->execute();
+    $schedule_result = $schedule_stmt->get_result();
+    if ($schedule_result && $schedule_result->num_rows > 0) {
+        $schedule_row = $schedule_result->fetch_assoc();
+        $course_time = $schedule_row['start_time'];
+    }
+    $schedule_stmt->close();
+}
+
+if (!$course_time) {
+    header("Location: markStudentAttendance.php?error=" . urlencode("Aucun emploi du temps trouvé pour ce cours à cette date"));
+    exit;
+}
+
+$datetime = $date . ' ' . $course_time;
 $success_count = 0;
 $error_count = 0;
 

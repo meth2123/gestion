@@ -1,6 +1,7 @@
 <?php
 include_once('main.php');
 require_once '../../service/db_utils.php';
+require_once '../../service/chat_room_service.php';
 
 // Vérification de la session
 if (!isset($_SESSION['student_id'])) {
@@ -26,6 +27,13 @@ if (!$student_info) {
 
 $class_id = $student_info['classid'];
 $class_name = $student_info['class_name'] ?? 'Non assigné';
+
+// S'assurer que le salon de la classe existe pour l'�tudiant
+if (!empty($class_id)) {
+    create_chat_room_for_class($link, $class_id, $class_name);
+}
+
+
 
 // Traitement de l'envoi d'un message
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_message') {
@@ -467,3 +475,7 @@ $content = ob_get_clean();
 // Inclure le template qui utilisera la variable $content
 include('templates/layout.php');
 ?>
+
+
+
+
