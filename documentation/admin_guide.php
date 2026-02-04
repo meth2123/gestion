@@ -118,7 +118,7 @@ require_once '../service/db_utils.php';
                         <div class="card-body">
                             <h5>Procédure de connexion</h5>
                             <ol class="step-list">
-                                <li>Accédez à la page de connexion via <code>http://votre-domaine.com/login.php</code></li>
+                                <li>Accédez à la page de connexion via <code>http://gestion-rlhq.onrender.com/login.php</code></li>
                                 <li>Entrez votre identifiant administrateur</li>
                                 <li>Entrez votre mot de passe</li>
                                 <li>Cliquez sur le bouton "Connexion"</li>

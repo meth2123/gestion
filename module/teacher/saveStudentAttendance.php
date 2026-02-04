@@ -126,24 +126,65 @@ if (!$admin_id) {
 $day_number = (int)date('N', strtotime($date)); // 1=Lundi, 7=Dimanche
 $course_time = null;
 
-$schedule_sql = "SELECT ts.start_time
-                 FROM class_schedule cs
-                 JOIN time_slots ts ON cs.slot_id = ts.slot_id
-                 WHERE CAST(cs.class_id AS CHAR) = CAST(? AS CHAR)
-                 AND cs.subject_id = ?
-                 AND CAST(cs.teacher_id AS CHAR) = CAST(? AS CHAR)
-                 AND ts.day_number = ?
-                 LIMIT 1";
-$schedule_stmt = $link->prepare($schedule_sql);
-if ($schedule_stmt) {
-    $schedule_stmt->bind_param("sisi", $class_id, $course_id, $teacher_id, $day_number);
-    $schedule_stmt->execute();
-    $schedule_result = $schedule_stmt->get_result();
-    if ($schedule_result && $schedule_result->num_rows > 0) {
-        $schedule_row = $schedule_result->fetch_assoc();
-        $course_time = $schedule_row['start_time'];
+// Vérifier si la colonne day_of_week existe
+$has_day_of_week = false;
+$col_check = $link->query("SHOW COLUMNS FROM class_schedule LIKE 'day_of_week'");
+if ($col_check && $col_check->num_rows > 0) {
+    $has_day_of_week = true;
+}
+
+if ($has_day_of_week) {
+    $day_name_en = date('l', strtotime($date));
+    $day_name_fr_map = [
+        'Monday' => 'Lundi',
+        'Tuesday' => 'Mardi',
+        'Wednesday' => 'Mercredi',
+        'Thursday' => 'Jeudi',
+        'Friday' => 'Vendredi',
+        'Saturday' => 'Samedi',
+        'Sunday' => 'Dimanche'
+    ];
+    $day_name_fr = $day_name_fr_map[$day_name_en] ?? $day_name_en;
+
+    $schedule_sql = "SELECT ts.start_time
+                     FROM class_schedule cs
+                     JOIN time_slots ts ON cs.slot_id = ts.slot_id
+                     WHERE CAST(cs.class_id AS CHAR) = CAST(? AS CHAR)
+                     AND cs.subject_id = ?
+                     AND CAST(cs.teacher_id AS CHAR) = CAST(? AS CHAR)
+                     AND (cs.day_of_week = ? OR cs.day_of_week = ?)
+                     LIMIT 1";
+    $schedule_stmt = $link->prepare($schedule_sql);
+    if ($schedule_stmt) {
+        $schedule_stmt->bind_param("sisss", $class_id, $course_id, $teacher_id, $day_name_en, $day_name_fr);
+        $schedule_stmt->execute();
+        $schedule_result = $schedule_stmt->get_result();
+        if ($schedule_result && $schedule_result->num_rows > 0) {
+            $schedule_row = $schedule_result->fetch_assoc();
+            $course_time = $schedule_row['start_time'];
+        }
+        $schedule_stmt->close();
     }
-    $schedule_stmt->close();
+} else {
+    $schedule_sql = "SELECT ts.start_time
+                     FROM class_schedule cs
+                     JOIN time_slots ts ON cs.slot_id = ts.slot_id
+                     WHERE CAST(cs.class_id AS CHAR) = CAST(? AS CHAR)
+                     AND cs.subject_id = ?
+                     AND CAST(cs.teacher_id AS CHAR) = CAST(? AS CHAR)
+                     AND ts.day_number = ?
+                     LIMIT 1";
+    $schedule_stmt = $link->prepare($schedule_sql);
+    if ($schedule_stmt) {
+        $schedule_stmt->bind_param("sisi", $class_id, $course_id, $teacher_id, $day_number);
+        $schedule_stmt->execute();
+        $schedule_result = $schedule_stmt->get_result();
+        if ($schedule_result && $schedule_result->num_rows > 0) {
+            $schedule_row = $schedule_result->fetch_assoc();
+            $course_time = $schedule_row['start_time'];
+        }
+        $schedule_stmt->close();
+    }
 }
 
 if (!$course_time) {
