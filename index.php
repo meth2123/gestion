@@ -4,8 +4,16 @@ require_once __DIR__ . '/service/mysqlcon.php';
 require_once __DIR__ . '/components/SmartSubscriptionButton.php';
 require_once __DIR__ . '/components/SecureSubscriptionChecker.php';
 
-// Utiliser APP_URL depuis les variables d'environnement ou une valeur par dÃ©faut
+// Utiliser APP_URL depuis les variables d'environnement ou une valeur par défaut
 $base_url = getenv('APP_URL') ?: 'https://gestion-rlhq.onrender.com';
+
+// SEO (page publique)
+$page_title = 'SchoolManager - Système de Gestion Scolaire';
+$page_description = 'Plateforme SchoolManager pour la gestion scolaire : inscriptions, présences, bulletins, paiements, emplois du temps, messagerie et suivi des élèves.';
+$page_url = rtrim($base_url, '/') . '/';
+$page_image = rtrim($base_url, '/') . '/source/logo.jpg';
+$robots = 'index, follow';
+$include_google_verification = true;
 
 $login_code = isset($_REQUEST['login']) ? $_REQUEST['login'] : '1';
 $reset_success = isset($_REQUEST['reset']) ? $_REQUEST['reset'] : '';
@@ -59,6 +67,7 @@ if(isset($_GET['error'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SchoolManager - SystÃ¨me de Gestion Scolaire</title>
+    <?php require_once __DIR__ . '/seo.php'; ?>
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="source/logo.jpg">
     <link rel="shortcut icon" type="image/jpeg" href="source/logo.jpg">

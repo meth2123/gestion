@@ -1,4 +1,8 @@
 <?php
+$page_title = 'Documentation SchoolManager';
+$page_description = 'Documentation et guides d�utilisation de SchoolManager.';
+$robots = 'index, follow';
+$include_google_verification = false;
 // Page de documentation - ne nécessite pas de connexion à la base de données
 // Charger db_utils.php seulement si nécessaire (lazy loading)
 // Cela évite les timeouts de connexion qui ralentissent l'affichage
@@ -15,6 +19,7 @@ ini_set('log_errors', 1);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentation SchoolManager</title>
+    <?php require_once __DIR__ . '/../seo.php'; ?>
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="../source/logo.jpg">
     <link rel="shortcut icon" type="image/jpeg" href="../source/logo.jpg">

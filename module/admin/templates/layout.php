@@ -20,6 +20,7 @@ $loged_user_name = $login_session ?? 'Administrateur';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($page_title) ? htmlspecialchars($page_title) : 'Administration'; ?></title>
+    <?php $robots = 'noindex, nofollow'; $include_google_verification = false; require_once __DIR__ . '/../../../seo.php'; ?>
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="../../../source/logo.jpg">
     <link rel="shortcut icon" type="image/jpeg" href="../../../source/logo.jpg">
